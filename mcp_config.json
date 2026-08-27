@@ -1,0 +1,30 @@
+{
+  "name": "portal-rdata-security-mcp",
+  "version": "1.0.0",
+  "description": "Configuración y directivas de seguridad para el Portal de Proveedores",
+  "securityPolicies": {
+    "fileUpload": {
+      "maxSizeMb": 5,
+      "allowedMagicNumbers": {
+        "pdf": "255044462D",
+        "xml": "3C3F786D6C"
+      },
+      "storageLocation": "ExternalProtectedStorage",
+      "preventDirectExecution": true
+    },
+    "database": {
+      "mode": "StrictStoredProceduresOnly",
+      "leastPrivilege": true,
+      "noSqlConcat": true
+    },
+    "webSecurity": {
+      "httpOnlyCookies": true,
+      "secureCookies": true,
+      "sameSite": "Strict",
+      "removeServerHeaders": true,
+      "forceHttps": true,
+      "disableDirectoryBrowsing": true,
+      "disableWebDAV": true
+    }
+  }
+}

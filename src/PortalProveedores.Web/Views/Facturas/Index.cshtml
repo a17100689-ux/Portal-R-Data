@@ -1,0 +1,104 @@
+@model IEnumerable<PortalProveedores.Core.Entities.Factura>
+@using PortalProveedores.Core.Entities
+@{
+    ViewData["Title"] = "Mis Facturas";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Mis Facturas</h3>
+        <p class="text-muted small mb-0">Listado histórico de facturas y estatus de recepción y pago</p>
+    </div>
+    <a asp-action="Cargar" class="btn btn-primary rounded-pill px-4 shadow-sm">
+        <i class="bi bi-cloud-arrow-up me-1"></i> Nueva Factura
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card card-custom p-5 text-center bg-white">
+        <div class="text-muted mb-3">
+            <i class="bi bi-receipt" style="font-size: 3.5rem;"></i>
+        </div>
+        <h5 class="fw-bold">No hay facturas registradas</h5>
+        <p class="text-muted small">Aún no has cargado ninguna factura en el portal.</p>
+        <div class="mt-2">
+            <a asp-action="Cargar" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                <i class="bi bi-plus-circle me-1"></i> Cargar Factura Ahora
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card card-custom bg-white overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Folio Fiscal (UUID)</th>
+                        <th>Serie / Folio</th>
+                        <th>Fecha Emisión</th>
+                        <th>Total</th>
+                        <th>Estatus</th>
+                        <th class="text-end pe-4">Archivos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var fac in Model)
+                    {
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark font-monospace small">@fac.UUID</span>
+                                <div class="text-muted" style="font-size: 0.75rem;">RFC Emisor: @fac.RFCEmisor</div>
+                            </td>
+                            <td>
+                                @(string.IsNullOrEmpty(fac.Serie) && string.IsNullOrEmpty(fac.Folio) ? "-" : $"{fac.Serie}{fac.Folio}")
+                            </td>
+                            <td class="small">
+                                @fac.FechaEmision.ToString("dd/MM/yyyy HH:mm")
+                            </td>
+                            <td>
+                                <span class="fw-bold">@fac.Total.ToString("C2")</span>
+                                <span class="text-muted small">@fac.Moneda</span>
+                            </td>
+                            <td>
+                                @switch (fac.Estatus)
+                                {
+                                    case EstadoFactura.Pendiente:
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> Pendiente</span>
+                                        break;
+                                    case EstadoFactura.Validada:
+                                        <span class="badge bg-info text-dark"><i class="bi bi-check2-circle me-1"></i> Validada</span>
+                                        break;
+                                    case EstadoFactura.Rechazada:
+                                        <span class="badge bg-danger" title="@fac.MotivoRechazo"><i class="bi bi-x-circle me-1"></i> Rechazada</span>
+                                        break;
+                                    case EstadoFactura.AprobadaParaPago:
+                                        <span class="badge bg-primary"><i class="bi bi-cash-coin me-1"></i> Para Pago</span>
+                                        break;
+                                    case EstadoFactura.Pagada:
+                                        <span class="badge bg-success"><i class="bi bi-check-all me-1"></i> Pagada</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-secondary">@fac.Estatus</span>
+                                        break;
+                                }
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    <a asp-action="DescargarXml" asp-route-id="@fac.Id" class="btn btn-outline-secondary" title="Descargar XML">
+                                        <i class="bi bi-filetype-xml text-danger"></i> XML
+                                    </a>
+                                    <a asp-action="DescargarPdf" asp-route-id="@fac.Id" class="btn btn-outline-secondary" title="Descargar PDF">
+                                        <i class="bi bi-filetype-pdf text-danger"></i> PDF
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

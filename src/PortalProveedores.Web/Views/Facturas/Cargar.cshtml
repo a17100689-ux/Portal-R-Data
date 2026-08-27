@@ -1,0 +1,80 @@
+@model PortalProveedores.Web.Models.CargaFacturaViewModel
+@{
+    ViewData["Title"] = "Carga de Factura";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card card-custom p-4 bg-white">
+            <div class="d-flex align-items-center mb-4">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                    <i class="bi bi-cloud-arrow-up-fill fs-3"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold mb-0">Recepción de Factura</h4>
+                    <p class="text-muted small mb-0">Adjunte los archivos XML y PDF de su factura (Tamaño máximo: 5 MB por archivo)</p>
+                </div>
+            </div>
+
+            <form asp-action="Cargar" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger p-2 small mb-3"></div>
+
+                <div class="row g-3 mb-4">
+                    <!-- Campo XML -->
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 bg-light h-100">
+                            <label asp-for="ArchivoXml" class="form-label fw-bold text-dark d-flex align-items-center">
+                                <i class="bi bi-file-earmark-code text-danger fs-5 me-2"></i> Archivo XML (CFDI)
+                            </label>
+                            <input asp-for="ArchivoXml" type="file" class="form-control" accept=".xml,text/xml,application/xml" required />
+                            <div class="form-text text-muted small">
+                                Comprobante fiscal digital en formato XML.
+                            </div>
+                            <span asp-validation-for="ArchivoXml" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Campo PDF -->
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 bg-light h-100">
+                            <label asp-for="ArchivoPdf" class="form-label fw-bold text-dark d-flex align-items-center">
+                                <i class="bi bi-file-earmark-pdf text-danger fs-5 me-2"></i> Representación Impresa (PDF)
+                            </label>
+                            <input asp-for="ArchivoPdf" type="file" class="form-control" accept=".pdf,application/pdf" required />
+                            <div class="form-text text-muted small">
+                                Archivo PDF legible de la factura.
+                            </div>
+                            <span asp-validation-for="ArchivoPdf" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="mb-4">
+                    <label asp-for="Observaciones" class="form-label fw-semibold text-secondary"></label>
+                    <textarea asp-for="Observaciones" class="form-control" rows="3" placeholder="Comentarios adicionales, número de orden de compra o referencia interna..."></textarea>
+                    <span asp-validation-for="Observaciones" class="text-danger small"></span>
+                </div>
+
+                <!-- Alerta informativa de seguridad -->
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-4">
+                    <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                    <div>
+                        Los archivos serán validados criptográficamente en el servidor (Magic Numbers y firma de CFDI) y almacenados en un repositorio protegido no accesible públicamente.
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                        <i class="bi bi-arrow-left me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm fw-semibold">
+                        <i class="bi bi-upload me-1"></i> Cargar y Validar Factura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
