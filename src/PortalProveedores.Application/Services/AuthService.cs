@@ -1,7 +1,6 @@
 using PortalProveedores.Application.DTOs;
 using PortalProveedores.Application.Interfaces;
 using PortalProveedores.Application.Security;
-using PortalProveedores.Core.Entities;
 
 namespace PortalProveedores.Application.Services;
 
@@ -23,70 +22,90 @@ public class AuthService : IAuthService
             return new ResultadoLogin { Exitoso = false, Mensaje = "Credenciales incompletas." };
         }
 
-        var usuario = await _usuarioRepo.ObtenerPorUsernameSpAsync(dto.Username.Trim(), ct);
-        if (usuario == null)
-        {
-            // Mensaje genérico para prevenir enumeración de usuarios
-            return new ResultadoLogin { Exitoso = false, Mensaje = "Usuario o contraseña incorrectos." };
-        }
+        string identificador = dto.Username.Trim();
 
-        // Validar si está bloqueado por múltiples intentos fallidos
-        if (usuario.BloqueadoHasta.HasValue && usuario.BloqueadoHasta.Value > DateTime.UtcNow)
+        // 1. Intentar autenticación como Administrador / Revisor Interno (sp_Portal_Admin_Login)
+        var admin = await _usuarioRepo.ObtenerAdminPorLoginSpAsync(identificador, ct);
+        if (admin != null)
         {
-            await _usuarioRepo.RegistrarAuditoriaSpAsync(new RegistroAuditoria
+            if (!admin.Activo)
             {
-                UsuarioId = usuario.Id,
-                Accion = "LOGIN_BLOQUEADO",
-                Detalle = $"Intento de acceso a cuenta bloqueada hasta {usuario.BloqueadoHasta.Value:yyyy-MM-dd HH:mm:ss}",
-                DireccionIP = ipAddress
-            }, ct);
+                return new ResultadoLogin { Exitoso = false, Mensaje = "Esta cuenta de administrador se encuentra inactiva." };
+            }
+
+            bool passwordAdminValido = _cryptoService.VerifyPassword(dto.Password, admin.PasswordHash);
+            if (!passwordAdminValido)
+            {
+                await _usuarioRepo.RegistrarAuditoriaSpAsync(admin.AdminId, "SEGURIDAD", "LOGIN_FALLIDO", "Contraseña incorrecta para administrador", ipAddress, ct);
+                return new ResultadoLogin { Exitoso = false, Mensaje = "Usuario o contraseña incorrectos." };
+            }
+
+            // Éxito Admin
+            await _usuarioRepo.RegistrarAuditoriaSpAsync(admin.AdminId, "SEGURIDAD", "LOGIN_EXITOSO", "Inicio de sesión de administrador exitoso", ipAddress, ct);
 
             return new ResultadoLogin
             {
-                Exitoso = false,
-                Mensaje = "La cuenta se encuentra temporalmente bloqueada por exceso de intentos fallidos. Intente más tarde."
+                Exitoso = true,
+                UsuarioId = admin.AdminId,
+                Username = admin.Email,
+                Email = admin.Email,
+                RazonSocial = admin.NombreCompleto,
+                Rol = string.Equals(admin.Rol, "ADMIN", StringComparison.OrdinalIgnoreCase) ? "Administrador" : admin.Rol,
+                ProveedorId = null,
+                EsAdmin = true,
+                Mensaje = "Autenticación de administrador exitosa."
             };
         }
 
-        if (!usuario.Activo)
+        // 2. Intentar autenticación como Proveedor (sp_Portal_Usuario_ObtenerPorLogin)
+        var proveedor = await _usuarioRepo.ObtenerProveedorPorLoginSpAsync(identificador, ct);
+        if (proveedor != null)
         {
-            return new ResultadoLogin { Exitoso = false, Mensaje = "Esta cuenta de usuario se encuentra inactiva." };
-        }
-
-        bool passwordValido = _cryptoService.VerifyPassword(dto.Password, usuario.PasswordHash, usuario.Salt);
-
-        if (!passwordValido)
-        {
-            await _usuarioRepo.RegistrarIntentoFallidoSpAsync(usuario.Id, ct);
-            await _usuarioRepo.RegistrarAuditoriaSpAsync(new RegistroAuditoria
+            // Validar bloqueo por intentos fallidos
+            if (proveedor.BloqueadoHasta.HasValue && proveedor.BloqueadoHasta.Value > DateTime.UtcNow)
             {
-                UsuarioId = usuario.Id,
-                Accion = "LOGIN_FALLIDO",
-                Detalle = "Contraseña incorrecta ingresada",
-                DireccionIP = ipAddress
-            }, ct);
+                await _usuarioRepo.RegistrarAuditoriaSpAsync(proveedor.UsuarioId, "SEGURIDAD", "LOGIN_BLOQUEADO", 
+                    $"Intento de acceso a cuenta de proveedor bloqueada hasta {proveedor.BloqueadoHasta.Value:yyyy-MM-dd HH:mm:ss}", ipAddress, ct);
 
-            return new ResultadoLogin { Exitoso = false, Mensaje = "Usuario o contraseña incorrectos." };
+                return new ResultadoLogin
+                {
+                    Exitoso = false,
+                    Mensaje = "La cuenta se encuentra temporalmente bloqueada por exceso de intentos fallidos. Intente más tarde (15 minutos)."
+                };
+            }
+
+            if (!proveedor.UsuarioActivo || !proveedor.ProveedorActivo)
+            {
+                return new ResultadoLogin { Exitoso = false, Mensaje = "La cuenta o razón social del proveedor se encuentra inactiva." };
+            }
+
+            bool passwordProvValido = _cryptoService.VerifyPassword(dto.Password, proveedor.PasswordHash);
+            if (!passwordProvValido)
+            {
+                await _usuarioRepo.RegistrarIntentoFallidoSpAsync(proveedor.UsuarioId, ct);
+                return new ResultadoLogin { Exitoso = false, Mensaje = "Usuario o contraseña incorrectos." };
+            }
+
+            // Éxito Proveedor: registrar login exitoso en bitácora
+            await _usuarioRepo.RegistrarLoginExitosoSpAsync(proveedor.UsuarioId, ipAddress, ct);
+
+            return new ResultadoLogin
+            {
+                Exitoso = true,
+                UsuarioId = proveedor.UsuarioId,
+                ProveedorId = proveedor.ProveedorId,
+                CodigoProveedor = proveedor.CodigoProveedor,
+                RFC = proveedor.RFC,
+                Username = proveedor.Email,
+                Email = proveedor.Email,
+                RazonSocial = proveedor.RazonSocial,
+                Rol = "Proveedor",
+                EsAdmin = false,
+                Mensaje = "Autenticación exitosa."
+            };
         }
 
-        // Login exitoso: Resetear intentos y registrar auditoría
-        await _usuarioRepo.ResetearIntentosFallidosSpAsync(usuario.Id, ct);
-        await _usuarioRepo.RegistrarAuditoriaSpAsync(new RegistroAuditoria
-        {
-            UsuarioId = usuario.Id,
-            Accion = "LOGIN_EXITOSO",
-            Detalle = "Inicio de sesión correcto",
-            DireccionIP = ipAddress
-        }, ct);
-
-        return new ResultadoLogin
-        {
-            Exitoso = true,
-            UsuarioId = usuario.Id,
-            Username = usuario.Username,
-            Rol = usuario.Rol.ToString(),
-            ProveedorId = usuario.ProveedorId,
-            Mensaje = "Autenticación exitosa."
-        };
+        // 3. Respuesta genérica defensiva ante identificador no encontrado
+        return new ResultadoLogin { Exitoso = false, Mensaje = "Usuario o contraseña incorrectos." };
     }
 }

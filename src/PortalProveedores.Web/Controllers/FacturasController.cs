@@ -88,7 +88,7 @@ public class FacturasController : Controller
     public async Task<IActionResult> DescargarXml(int id)
     {
         int proveedorId = ObtenerProveedorIdActual();
-        var factura = await _facturaService.ObtenerDetalleAsync(id, proveedorId);
+        var factura = await _facturaService.ObtenerEntidadDetalleAsync(id, proveedorId);
         if (factura == null)
         {
             return NotFound("La factura solicitada no existe o no tiene permisos para acceder.");
@@ -110,7 +110,7 @@ public class FacturasController : Controller
     public async Task<IActionResult> DescargarPdf(int id)
     {
         int proveedorId = ObtenerProveedorIdActual();
-        var factura = await _facturaService.ObtenerDetalleAsync(id, proveedorId);
+        var factura = await _facturaService.ObtenerEntidadDetalleAsync(id, proveedorId);
         if (factura == null)
         {
             return NotFound("La factura solicitada no existe o no tiene permisos para acceder.");

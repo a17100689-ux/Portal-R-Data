@@ -4,6 +4,7 @@ public class RegistroAuditoria
 {
     public long Id { get; set; }
     public int? UsuarioId { get; set; }
+    public string Modulo { get; set; } = "PORTAL_AUTH";
     public string Accion { get; set; } = string.Empty;
     public string Detalle { get; set; } = string.Empty;
     public string DireccionIP { get; set; } = string.Empty;

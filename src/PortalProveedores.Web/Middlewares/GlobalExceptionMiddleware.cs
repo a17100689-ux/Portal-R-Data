@@ -27,15 +27,18 @@ public class GlobalExceptionMiddleware
                 context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
-                if (context.Request.Headers["Accept"].ToString().Contains("application/json") ||
+                if (context.Request.Path.StartsWithSegments("/api") ||
+                    context.Request.Headers["Accept"].ToString().Contains("application/json") ||
                     context.Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsJsonAsync(new
                     {
-                        exitoso = false,
-                        mensaje = "Ocurrió un error inesperado al procesar su solicitud. Por favor intente más tarde o contacte a soporte.",
-                        ticket = correlationId
+                        success = false,
+                        message = "Ocurrió un error inesperado al procesar su solicitud. Por favor intente más tarde o contacte a soporte.",
+                        ticket = correlationId,
+                        statusCode = StatusCodes.Status500InternalServerError,
+                        timestamp = DateTime.UtcNow
                     });
                 }
                 else

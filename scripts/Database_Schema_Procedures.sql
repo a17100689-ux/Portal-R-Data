@@ -249,6 +249,100 @@ BEGIN
 END
 GO
 
+CREATE OR ALTER PROCEDURE sp_Factura_ListarPaginado
+    @ProveedorId INT = NULL,
+    @EstatusId INT = NULL,
+    @FechaInicio DATETIME2 = NULL,
+    @FechaFin DATETIME2 = NULL,
+    @TerminoBusqueda NVARCHAR(100) = NULL,
+    @Pagina INT = 1,
+    @RegistrosPorPagina INT = 10,
+    @TotalRegistros INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @Pagina < 1 SET @Pagina = 1;
+    IF @RegistrosPorPagina < 1 SET @RegistrosPorPagina = 10;
+    IF @RegistrosPorPagina > 100 SET @RegistrosPorPagina = 100;
+
+    DECLARE @Offset INT = (@Pagina - 1) * @RegistrosPorPagina;
+
+    SELECT @TotalRegistros = COUNT(1)
+    FROM Facturas f
+    INNER JOIN Proveedores p ON f.ProveedorId = p.Id
+    WHERE (@ProveedorId IS NULL OR f.ProveedorId = @ProveedorId)
+      AND (@EstatusId IS NULL OR f.EstatusId = @EstatusId)
+      AND (@FechaInicio IS NULL OR f.FechaEmision >= @FechaInicio)
+      AND (@FechaFin IS NULL OR f.FechaEmision <= @FechaFin)
+      AND (@TerminoBusqueda IS NULL OR (
+          f.UUID LIKE '%' + @TerminoBusqueda + '%' OR
+          f.Folio LIKE '%' + @TerminoBusqueda + '%' OR
+          f.RFCEmisor LIKE '%' + @TerminoBusqueda + '%' OR
+          p.RazonSocial LIKE '%' + @TerminoBusqueda + '%'
+      ));
+
+    SELECT 
+        f.Id,
+        f.ProveedorId,
+        f.UUID,
+        f.Serie,
+        f.Folio,
+        f.RFCEmisor,
+        f.RFCReceptor,
+        f.FechaEmision,
+        f.FechaCarga,
+        f.Subtotal,
+        f.ImpuestosTrasladados,
+        f.ImpuestosRetenidos,
+        f.Total,
+        f.Moneda,
+        f.EstatusId AS Estatus,
+        f.ArchivoXmlNombreInterno,
+        f.ArchivoXmlNombreOriginal,
+        f.ArchivoPdfNombreInterno,
+        f.ArchivoPdfNombreOriginal,
+        f.MotivoRechazo,
+        f.Observaciones,
+        p.Id,
+        p.RFC,
+        p.RazonSocial
+    FROM Facturas f
+    INNER JOIN Proveedores p ON f.ProveedorId = p.Id
+    WHERE (@ProveedorId IS NULL OR f.ProveedorId = @ProveedorId)
+      AND (@EstatusId IS NULL OR f.EstatusId = @EstatusId)
+      AND (@FechaInicio IS NULL OR f.FechaEmision >= @FechaInicio)
+      AND (@FechaFin IS NULL OR f.FechaEmision <= @FechaFin)
+      AND (@TerminoBusqueda IS NULL OR (
+          f.UUID LIKE '%' + @TerminoBusqueda + '%' OR
+          f.Folio LIKE '%' + @TerminoBusqueda + '%' OR
+          f.RFCEmisor LIKE '%' + @TerminoBusqueda + '%' OR
+          p.RazonSocial LIKE '%' + @TerminoBusqueda + '%'
+      ))
+    ORDER BY f.FechaCarga DESC
+    OFFSET @Offset ROWS
+    FETCH NEXT @RegistrosPorPagina ROWS ONLY;
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_Proveedor_ObtenerPorId
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM Proveedores WHERE Id = @Id;
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_Proveedor_ObtenerPorRfc
+    @RFC VARCHAR(15)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM Proveedores WHERE RFC = @RFC;
+END
+GO
+
 -- ============================================================================
 -- 3. ROL DE PRIVILEGIOS MÍNIMOS PARA LA APLICACIÓN (Least Privilege)
 -- ============================================================================
@@ -262,11 +356,74 @@ GRANT EXECUTE ON sp_Factura_ObtenerPorId TO PortalAppUser;
 GRANT EXECUTE ON sp_Factura_ObtenerPorUuid TO PortalAppUser;
 GRANT EXECUTE ON sp_Factura_ListarPorProveedor TO PortalAppUser;
 GRANT EXECUTE ON sp_Factura_ListarTodas TO PortalAppUser;
+GRANT EXECUTE ON sp_Factura_ListarPaginado TO PortalAppUser;
 GRANT EXECUTE ON sp_Factura_ActualizarEstatus TO PortalAppUser;
 GRANT EXECUTE ON sp_Factura_ExisteUuid TO PortalAppUser;
+GRANT EXECUTE ON sp_Proveedor_ObtenerPorId TO PortalAppUser;
+GRANT EXECUTE ON sp_Proveedor_ObtenerPorRfc TO PortalAppUser;
 GRANT EXECUTE ON sp_Usuario_ObtenerPorUsername TO PortalAppUser;
 GRANT EXECUTE ON sp_Usuario_ObtenerPorId TO PortalAppUser;
 GRANT EXECUTE ON sp_Usuario_RegistrarIntentoFallido TO PortalAppUser;
 GRANT EXECUTE ON sp_Usuario_ResetearIntentosFallidos TO PortalAppUser;
 GRANT EXECUTE ON sp_Auditoria_Registrar TO PortalAppUser;
 */
+GO
+
+-- ============================================================================
+-- 4. DATOS SEMILLA DE PRUEBA (Seed Data)
+-- Criptografía: PBKDF2 con SHA-512 y 100,000 iteraciones
+-- ============================================================================
+
+-- Proveedor de prueba
+IF NOT EXISTS (SELECT 1 FROM Proveedores WHERE RFC = 'AAA010101AAA')
+BEGIN
+    INSERT INTO Proveedores (RFC, RazonSocial, EmailContacto, Telefono, Activo, FechaRegistro)
+    VALUES ('AAA010101AAA', 'PROVEEDOR DEMO SA DE CV', 'contacto@proveedordemo.com', '555-123-4567', 1, SYSUTCDATETIME());
+END
+GO
+
+-- Usuario Administrador de prueba
+-- Credenciales: Username = admin | Contraseña = Admin@Portal2026!
+IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE Username = 'admin')
+BEGIN
+    INSERT INTO Usuarios (
+        Username, Email, PasswordHash, Salt, Rol, ProveedorId, Activo, IntentosFallidosLogin, BloqueadoHasta, FechaCreacion
+    )
+    VALUES (
+        'admin',
+        'admin@portalrdata.com',
+        'dEfo+mrvsYJ+iTWRWckSlM7cFRdPlL5ujA87eEAKqPQ+wf4f9m6zLwjE3fDMHowM/0QBXUPmcQeK82wX777lqw==',
+        'talOyam2904R6OPvrK1yJQXz22g9ms+VgWV4UsTjTmA=',
+        3, -- Administrador
+        NULL,
+        1,
+        0,
+        NULL,
+        SYSUTCDATETIME()
+    );
+END
+GO
+
+-- Usuario Proveedor de prueba
+-- Credenciales: Username = proveedor_demo | Contraseña = Proveedor@Portal2026!
+DECLARE @ProveedorIdDemo INT = (SELECT TOP 1 Id FROM Proveedores WHERE RFC = 'AAA010101AAA');
+
+IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE Username = 'proveedor_demo')
+BEGIN
+    INSERT INTO Usuarios (
+        Username, Email, PasswordHash, Salt, Rol, ProveedorId, Activo, IntentosFallidosLogin, BloqueadoHasta, FechaCreacion
+    )
+    VALUES (
+        'proveedor_demo',
+        'proveedor@demo.com',
+        'g9axiBZ38bSOGhOCT8/u5jXHaQKg+tAYoHK+jXB6oduJ43MVfr7mGuOvi+idlB+I1tVQRB+Iy5O/8sNJoLKj3Q==',
+        'IduVkGEGb5B9f1Ndxmur30ZQQx1kQ1ZGCPQNF8hdBdw=',
+        1, -- Proveedor
+        @ProveedorIdDemo,
+        1,
+        0,
+        NULL,
+        SYSUTCDATETIME()
+    );
+END
+GO
