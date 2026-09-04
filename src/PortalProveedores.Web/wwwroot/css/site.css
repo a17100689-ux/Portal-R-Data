@@ -1,5 +1,51 @@
+/* ==========================================================================
+   Radial Llantas México - Portal de Proveedores (Portal R-Data)
+   Design System & Tokens Corporativos
+   ========================================================================== */
+
+:root {
+  /* Paleta Oficial Radial Llantas */
+  --radial-yellow: #F5B700;
+  --radial-yellow-hover: #E5A800;
+  --radial-yellow-active: #CC9600;
+  --radial-yellow-light: #FFFBEA;
+  --radial-yellow-border: #FDE68A;
+  
+  --radial-black: #121212;
+  --radial-dark: #1A1D20;
+  --radial-slate: #24292E;
+  
+  --radial-gray-50: #F8FAFC;
+  --radial-gray-100: #F1F5F9;
+  --radial-gray-200: #E2E8F0;
+  --radial-gray-300: #CBD5E1;
+  --radial-gray-400: #94A3B8;
+  --radial-gray-500: #64748B;
+  --radial-gray-600: #475569;
+  --radial-gray-700: #334155;
+  --radial-gray-800: #1E293B;
+  --radial-gray-900: #0F172A;
+
+  --radial-success: #16A34A;
+  --radial-danger: #DC2626;
+  --radial-warning: #D97706;
+  --radial-info: #0284C7;
+
+  --radial-radius-sm: 6px;
+  --radial-radius-md: 10px;
+  --radial-radius-lg: 16px;
+  --radial-radius-xl: 24px;
+
+  --radial-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --radial-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --radial-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --radial-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+}
+
 html {
   font-size: 14px;
+  position: relative;
+  min-height: 100%;
 }
 
 @media (min-width: 768px) {
@@ -8,24 +54,271 @@ html {
   }
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
-}
-
 body {
-  margin-bottom: 60px;
+  background-color: var(--radial-gray-50);
+  color: var(--radial-gray-900);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+/* --------------------------------------------------------------------------
+   Botones Corporativos Radial Llantas
+   -------------------------------------------------------------------------- */
+.btn-radial {
+  background-color: var(--radial-yellow);
+  color: #000000 !important;
+  font-weight: 700;
+  border: 1px solid var(--radial-yellow);
+  border-radius: var(--radial-radius-md);
+  padding: 0.65rem 1.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(245, 183, 0, 0.2);
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+.btn-radial:hover {
+  background-color: var(--radial-yellow-hover);
+  border-color: var(--radial-yellow-hover);
+  color: #000000 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(245, 183, 0, 0.35);
+}
+
+.btn-radial:active {
+  background-color: var(--radial-yellow-active);
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(245, 183, 0, 0.2);
+}
+
+.btn-radial:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+}
+
+.btn-radial-dark {
+  background-color: var(--radial-black);
+  color: #FFFFFF !important;
+  font-weight: 600;
+  border: 1px solid var(--radial-black);
+  border-radius: var(--radial-radius-md);
+  transition: all 0.2s ease;
+}
+
+.btn-radial-dark:hover {
+  background-color: var(--radial-dark);
+  color: var(--radial-yellow) !important;
+  border-color: var(--radial-slate);
+}
+
+.btn-outline-radial {
+  background-color: transparent;
+  color: #000000;
+  border: 1.5px solid var(--radial-yellow);
+  font-weight: 600;
+  border-radius: var(--radial-radius-md);
+  transition: all 0.2s ease;
+}
+
+.btn-outline-radial:hover {
+  background-color: var(--radial-yellow);
+  color: #000000;
+}
+
+/* --------------------------------------------------------------------------
+   Inputs & Formularios
+   -------------------------------------------------------------------------- */
+.radial-form-control {
+  border: 1.5px solid var(--radial-gray-200);
+  border-radius: var(--radial-radius-md);
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  color: var(--radial-gray-900);
+  background-color: #FFFFFF;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.radial-form-control:focus {
+  border-color: var(--radial-yellow);
+  box-shadow: 0 0 0 4px rgba(245, 183, 0, 0.2);
+  outline: none;
+  background-color: #FFFFFF;
+}
+
+.radial-input-group .input-group-text {
+  background-color: var(--radial-gray-50);
+  border: 1.5px solid var(--radial-gray-200);
+  color: var(--radial-gray-500);
+  border-radius: var(--radial-radius-md) 0 0 var(--radial-radius-md);
+}
+
+.radial-input-group .radial-form-control {
+  border-left: 0;
+  border-radius: 0 var(--radial-radius-md) var(--radial-radius-md) 0;
+}
+
+.radial-input-group:focus-within .input-group-text {
+  border-color: var(--radial-yellow);
+  color: #000000;
+}
+
+.radial-input-group:focus-within .radial-form-control {
+  border-color: var(--radial-yellow);
+}
+
+/* --------------------------------------------------------------------------
+   Layout de Autenticación (Split-Screen Radial)
+   -------------------------------------------------------------------------- */
+.auth-split-layout {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: stretch;
+}
+
+.auth-brand-pane {
+  background: linear-gradient(145deg, #101214 0%, #1A1E24 60%, #121417 100%);
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radial-radius-lg) 0 0 var(--radial-radius-lg);
+  padding: 3.5rem;
+}
+
+/* Trazado / Textura geométrica sutil en el fondo de marca */
+.auth-brand-pane::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  border: 40px solid rgba(245, 183, 0, 0.06);
+  pointer-events: none;
+}
+
+.auth-brand-pane::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  border: 60px solid rgba(255, 255, 255, 0.03);
+  pointer-events: none;
+}
+
+.auth-form-pane {
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem;
+  border-radius: 0 var(--radial-radius-lg) var(--radial-radius-lg) 0;
+  border: 1px solid var(--radial-gray-200);
+  border-left: none;
+}
+
+@media (max-width: 991.98px) {
+  .auth-brand-pane {
+    display: none;
+  }
+  .auth-form-pane {
+    border-radius: var(--radial-radius-lg);
+    border-left: 1px solid var(--radial-gray-200);
+    padding: 2rem 1.5rem;
+  }
+}
+
+.auth-form-container {
+  width: 100%;
+  max-width: 440px;
+}
+
+/* --------------------------------------------------------------------------
+   Badges y Microinteracciones
+   -------------------------------------------------------------------------- */
+.badge-radial-yellow {
+  background-color: var(--radial-yellow);
+  color: #000000;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-feature {
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border-radius: var(--radial-radius-md);
+  padding: 1rem;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.badge-feature:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.caps-lock-warning {
+  background-color: #FFF1F2;
+  color: #BE123C;
+  border: 1px solid #FECDD3;
+  border-radius: var(--radial-radius-sm);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle-btn {
+  border: 1.5px solid var(--radial-gray-200);
+  border-left: none;
+  background-color: transparent;
+  color: var(--radial-gray-500);
+  border-radius: 0 var(--radial-radius-md) var(--radial-radius-md) 0;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #000000;
+  background-color: var(--radial-gray-50);
+}
+
+/* --------------------------------------------------------------------------
+   Navbar & Footer Corporativos
+   -------------------------------------------------------------------------- */
+.radial-navbar {
+  background-color: #FFFFFF;
+  border-bottom: 2px solid var(--radial-yellow);
+}
+
+.radial-footer {
+  margin-top: auto;
+  background-color: #FFFFFF;
+  border-top: 1px solid var(--radial-gray-200);
+  padding: 1.5rem 0;
+  font-size: 0.85rem;
+  color: var(--radial-gray-500);
+}
+
+.radial-logo-img {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+}
+
+.card-custom {
+  border: 1px solid var(--radial-gray-200);
+  border-radius: var(--radial-radius-lg);
+  box-shadow: var(--radial-shadow-md);
+  background-color: #FFFFFF;
 }
