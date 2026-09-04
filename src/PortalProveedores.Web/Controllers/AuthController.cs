@@ -57,13 +57,29 @@ public class AuthController : Controller
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, resultado.UsuarioId?.ToString() ?? "0"),
-            new Claim(ClaimTypes.Name, resultado.Username ?? string.Empty),
-            new Claim(ClaimTypes.Role, resultado.Rol ?? "Proveedor")
+            new Claim(ClaimTypes.Name, !string.IsNullOrEmpty(resultado.RazonSocial) ? resultado.RazonSocial : (resultado.Username ?? string.Empty)),
+            new Claim(ClaimTypes.Role, resultado.Rol ?? "Proveedor"),
+            new Claim("EsAdmin", resultado.EsAdmin ? "true" : "false")
         };
+
+        if (!string.IsNullOrEmpty(resultado.Email))
+        {
+            claims.Add(new Claim(ClaimTypes.Email, resultado.Email));
+        }
+
+        if (!string.IsNullOrEmpty(resultado.RFC))
+        {
+            claims.Add(new Claim("RFC", resultado.RFC));
+        }
 
         if (resultado.ProveedorId.HasValue)
         {
             claims.Add(new Claim("ProveedorId", resultado.ProveedorId.Value.ToString()));
+        }
+
+        if (!string.IsNullOrEmpty(resultado.CodigoProveedor))
+        {
+            claims.Add(new Claim("CodigoProveedor", resultado.CodigoProveedor));
         }
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
