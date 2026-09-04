@@ -35,6 +35,7 @@ public interface IProveedorRepository
     Task<Proveedor?> ObtenerPorIdSpAsync(int id, CancellationToken ct = default);
     Task<Proveedor?> ObtenerPorRfcSpAsync(string rfc, CancellationToken ct = default);
     Task<Proveedor?> ObtenerPorCodigoSpAsync(string codigoProveedor, CancellationToken ct = default);
+    Task<ResultadoCrearProveedorDto> CrearProveedorCompletoAsync(CrearProveedorDto dto, string passwordHash, int adminUsuarioId, string direccionIp, CancellationToken ct = default);
 }
 
 public interface IUsuarioRepository

@@ -236,7 +236,38 @@ body {
 
 .auth-form-container {
   width: 100%;
-  max-width: 440px;
+  max-width: 540px;
+}
+
+#authTabs .nav-link {
+  color: var(--radial-gray-600);
+  border-radius: var(--radial-radius-md);
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+#authTabs .nav-link:hover:not(.active) {
+  color: var(--radial-gray-900);
+  background-color: var(--radial-gray-200);
+}
+
+#authTabs .nav-link.active {
+  background-color: var(--radial-yellow);
+  color: #000000 !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 183, 0, 0.35);
+}
+
+.form-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.75px;
+  text-transform: uppercase;
+  color: var(--radial-gray-500);
+  border-bottom: 1px solid var(--radial-gray-200);
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
 }
 
 /* --------------------------------------------------------------------------

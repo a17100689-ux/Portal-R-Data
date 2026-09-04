@@ -251,3 +251,30 @@ public class ResultadoLogin
     public string? RFC { get; set; }
     public bool EsAdmin { get; set; }
 }
+
+public class CrearProveedorDto
+{
+    public string CodigoProveedor { get; set; } = string.Empty;
+    public string RFC { get; set; } = string.Empty;
+    public string RazonSocial { get; set; } = string.Empty;
+    public string? RegimenFiscal { get; set; }
+    public string? CodigoPostal { get; set; }
+    public string? CondicionesPago { get; set; } = "30";
+    public string? Telefono { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool RequiereValidarCompra { get; set; } = true;
+    public bool OrdenCompraObligatoria { get; set; } = true;
+    public bool EsProveedorNacional { get; set; } = true;
+    public bool Activo { get; set; } = true;
+}
+
+public class ResultadoCrearProveedorDto
+{
+    public bool Exitoso { get; set; }
+    public string Mensaje { get; set; } = string.Empty;
+    public int? ProveedorId { get; set; }
+    public int? UsuarioId { get; set; }
+    public string? CodigoProveedor { get; set; }
+    public string? RFC { get; set; }
+}
