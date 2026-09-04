@@ -16,6 +16,7 @@ builder.Services.AddSingleton<ICryptoService, CryptoService>();
 builder.Services.AddSingleton<IStorageService, SecureFileStorageService>();
 
 builder.Services.AddScoped<IFacturaRepository, SqlFacturaRepository>();
+builder.Services.AddScoped<IProveedorRepository, SqlProveedorRepository>();
 builder.Services.AddScoped<IUsuarioRepository, SqlUsuarioRepository>();
 builder.Services.AddScoped<IFacturaService, FacturaService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -83,6 +84,8 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapControllers();
 
 app.MapControllerRoute(
     name: "default",

@@ -13,7 +13,7 @@ public class CryptoAndCfdiTests
     public void CryptoService_HashAndVerify_DebeValidarCorrectamente()
     {
         string rawPassword = "StrongPassword#2026";
-        var (hash, salt) = _cryptoService.HashPassword(rawPassword);
+        var (hash, salt) = _cryptoService.HashPasswordWithSalt(rawPassword);
 
         Assert.NotEmpty(hash);
         Assert.NotEmpty(salt);
@@ -21,7 +21,12 @@ public class CryptoAndCfdiTests
         bool isValid = _cryptoService.VerifyPassword(rawPassword, hash, salt);
         Assert.True(isValid);
 
-        bool isInvalid = _cryptoService.VerifyPassword("WrongPassword", hash, salt);
+        // Prueba con formato compuesto {salt}:{hash} de PasswordHash VARCHAR(255)
+        string compositeHash = _cryptoService.HashPassword(rawPassword);
+        Assert.Contains(':', compositeHash);
+        Assert.True(_cryptoService.VerifyPassword(rawPassword, compositeHash));
+
+        bool isInvalid = _cryptoService.VerifyPassword("WrongPassword", compositeHash);
         Assert.False(isInvalid);
     }
 
