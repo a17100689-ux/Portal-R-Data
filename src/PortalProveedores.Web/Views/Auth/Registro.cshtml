@@ -1,0 +1,387 @@
+@model PortalProveedores.Web.Models.RegistroProveedorViewModel
+@{
+    ViewData["Title"] = "Registro y Alta de Proveedores";
+    bool esAdmin = (bool)(ViewData["EsAdmin"] ?? false);
+}
+
+<div class="container py-4">
+    <!-- Encabezado de Navegación y Título -->
+    <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between mb-4 pb-2 border-bottom">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1 small text-muted">
+                    <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none text-secondary">Inicio</a></li>
+                    <li class="breadcrumb-item"><a asp-controller="Facturas" asp-action="Index" class="text-decoration-none text-secondary">Facturas</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Alta de Proveedor</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-dark text-warning px-2 py-1 small rounded-1 fw-bold">ADMINISTRACIÓN B2B</span>
+                <h3 class="fw-bold mb-0 text-dark">Registro y Alta de Proveedor</h3>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+                Habilitación de cuentas para socios comerciales.
+            </p>
+        </div>
+        <div class="mt-3 mt-md-0">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-controller="Facturas" asp-action="Index" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Volver a Mis Facturas
+                </a>
+            }
+            else
+            {
+                <a asp-controller="Auth" asp-action="Login" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Ir a Iniciar Sesión
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (!esAdmin)
+    {
+        <!-- Estado Restringido: El usuario no cuenta con rol de Administrador -->
+        <div class="row justify-content-center my-4">
+            <div class="col-12 col-md-10 col-lg-8">
+                <div class="card card-custom p-4 p-md-5 text-center shadow-sm">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 mx-auto" style="width: 72px; height: 72px;">
+                        <i class="bi bi-shield-lock-fill fs-2" style="color: var(--radial-yellow-hover);"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">Módulo Restringido a Administradores</h4>
+                    <p class="text-muted small px-lg-4 mb-4">
+                        El alta y aprovisionamiento de cuentas de proveedores en el portal está reservado exclusivamente para el personal autorizado de Cuentas por Pagar y Compras de <strong>Radial Llantas México</strong>.
+                    </p>
+                    
+                    <div class="alert alert-light border rounded-3 p-3 text-start small mb-4 mx-auto" style="max-width: 540px;">
+                        <div class="fw-bold text-dark mb-2">
+                            <i class="bi bi-info-circle-fill text-primary me-1"></i> Procedimiento Oficial de Registro:
+                        </div>
+                        <ol class="mb-0 ps-3 text-muted">
+                            <li class="mb-1">El socio comercial debe estar dado de alta previamente en el catálogo central del ERP (<code>Cat_Proveedores</code>).</li>
+                            <li class="mb-1">Un administrador autorizado valida la clave interna ERP y RFC en este módulo.</li>
+                            <li>Se configuran las credenciales iniciales de acceso y políticas de validación de órdenes de compra.</li>
+                        </ol>
+                    </div>
+
+                    <div class="d-flex justify-content-center gap-2">
+                        <a asp-controller="Auth" asp-action="Login" class="btn btn-radial px-4 py-2 fw-semibold">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión como Administrador
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Formulario Completo de Alta de Proveedor para Administradores -->
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-10">
+                <form asp-controller="Auth" asp-action="Registro" method="post" id="registroProveedorForm" novalidate>
+                    @Html.AntiForgeryToken()
+
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger p-3 small mb-4 rounded-3 d-flex align-items-start shadow-sm" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill fs-5 me-2 flex-shrink-0 text-danger"></i>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-1">Se detectaron inconsistencias en la solicitud:</h6>
+                                <div asp-validation-summary="All" class="mb-0"></div>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Bloque 1: Identificación y Catálogo ERP -->
+                    <div class="card card-custom p-4 mb-4 shadow-sm">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center pb-2 mb-3 border-bottom">
+                            <div>
+                                <span class="badge bg-primary-subtle text-primary fw-bold text-uppercase" style="font-size: 0.7rem;">Paso 1</span>
+                                <h5 class="fw-bold text-dark mb-0 mt-1">
+                                    <i class="bi bi-building me-1 text-primary"></i> Identificación De Proveedor
+                                </h5>
+                                <span class="text-muted small">Vincule al proveedor existente en  de Radial Llantas.</span>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 shadow-sm mt-2 mt-sm-0" data-bs-toggle="modal" data-bs-target="#modalBuscadorCatalogo">
+                                <i class="bi bi-search me-1"></i> Explorar Catálogo De Proveedores
+                            </button>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="CodigoProveedor" class="form-label small fw-bold text-dark mb-1">
+                                    Código Interno EKT
+                                    <span class="badge bg-warning text-dark fw-bold ms-1" style="font-size: 0.65rem;">Búsqueda activa</span>
+                                </label>
+                                <div class="input-group radial-input-group">
+                                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                    <input asp-for="CodigoProveedor" id="regCodigoProveedor" class="form-control radial-form-control text-uppercase font-monospace" placeholder="Ej: PRV-00145" maxlength="15" autofocus required />
+                                    <button class="btn btn-outline-secondary px-3" type="button" id="btnBuscarCodigo" title="Verificar código en ERP">
+                                        <i class="bi bi-arrow-clockwise" id="iconBuscarCodigo"></i>
+                                    </button>
+                                </div>
+                                <span class="text-muted" style="font-size: 0.7rem;">Ingrese el código ERP para cargar datos automáticamente.</span>
+                                <span asp-validation-for="CodigoProveedor" class="text-danger small d-block mt-1"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="RFC" class="form-label small fw-bold text-dark mb-1">
+                                    RFC del Proveedor *
+                                    <span id="badgeRfcAutollenado" class="badge bg-success-subtle text-success ms-1 d-none" style="font-size: 0.65rem;">✓ Autollenado</span>
+                                </label>
+                                <div class="input-group radial-input-group">
+                                    <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                                    <input asp-for="RFC" id="regRFC" class="form-control radial-form-control text-uppercase font-monospace" placeholder="Ej: PRV920415XXX" maxlength="15" required />
+                                </div>
+                                <span class="text-muted" style="font-size: 0.7rem;">12 o 13 caracteres SAT oficiales con homoclave.</span>
+                                <span asp-validation-for="RFC" class="text-danger small d-block mt-1"></span>
+                            </div>
+                        </div>
+
+                        <!-- Indicador reactivo de validación contra Cat_Proveedores -->
+                        <div id="catValidationContainer" class="mb-3 d-none"></div>
+
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label asp-for="RazonSocial" class="form-label small fw-bold text-dark mb-1">Razón Social o Denominación Oficial *</label>
+                                <input asp-for="RazonSocial" id="regRazonSocial" class="form-control radial-form-control text-uppercase" placeholder="Ej: DISTRIBUIDORA NACIONAL DE NEUMÁTICOS SA DE CV" maxlength="200" required />
+                                <span asp-validation-for="RazonSocial" class="text-danger small d-block mt-1"></span>
+                            </div>
+                            <div class="col-md-3">
+                                <label asp-for="CodigoPostal" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                                    <span>Código Postal Fiscal *</span>
+                                    <span id="badgeCpAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado</span>
+                                </label>
+                                <div class="input-group radial-input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                                    <input asp-for="CodigoPostal" id="regCodigoPostal" class="form-control radial-form-control" placeholder="44920" maxlength="5" pattern="\d{5}" required />
+                                </div>
+                                <span asp-validation-for="CodigoPostal" class="text-danger small d-block mt-1"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="RegimenFiscal" class="form-label small fw-bold text-dark mb-1">Régimen Fiscal SAT *</label>
+                                <select asp-for="RegimenFiscal" id="regRegimenFiscal" class="form-select radial-form-control">
+                                    <option value="601">601 - General de Ley Personas Morales</option>
+                                    <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                                    <option value="612">612 - Personas Físicas con Actividades Empresariales</option>
+                                    <option value="625">625 - Régimen Actividades Empresariales Plataformas</option>
+                                    <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
+                                </select>
+                                <span asp-validation-for="RegimenFiscal" class="text-danger small d-block mt-1"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloque 2: Parámetros Operativos y Políticas Comerciales -->
+                    <div class="card card-custom p-4 mb-4 shadow-sm">
+                        <div class="pb-2 mb-3 border-bottom">
+                            <span class="badge bg-primary-subtle text-primary fw-bold text-uppercase" style="font-size: 0.7rem;">Paso 2</span>
+                            <h5 class="fw-bold text-dark mb-0 mt-1">
+                                <i class="bi bi-cash-stack me-1 text-primary"></i> Parámetros Operativos y Políticas Comerciales
+                            </h5>
+                            <span class="text-muted small">Configure las reglas comerciales y vías de comunicación oficial.</span>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label asp-for="CondicionesPago" class="form-label small fw-bold text-dark mb-1">Condiciones de Pago</label>
+                                <select asp-for="CondicionesPago" id="regCondicionesPago" class="form-select radial-form-control">
+                                    <option value="0">Contado (0 días)</option>
+                                    <option value="15">Crédito 15 días</option>
+                                    <option value="30">Crédito 30 días</option>
+                                    <option value="45">Crédito 45 días</option>
+                                    <option value="60">Crédito 60 días</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="Email" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                                    <span>Correo Electrónico Oficial *</span>
+                                    <span id="badgeEmailAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado (editable)</span>
+                                </label>
+                                <input asp-for="Email" id="regEmail" type="email" class="form-control radial-form-control" placeholder="facturacion@proveedor.com" required />
+                                <span asp-validation-for="Email" class="text-danger small d-block mt-1"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="Telefono" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                                    <span>Teléfono de Contacto</span>
+                                    <span id="badgeTelAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado</span>
+                                </label>
+                                <input asp-for="Telefono" id="regTelefono" type="tel" class="form-control radial-form-control" placeholder="33 1234 5678" maxlength="50" />
+                                <span asp-validation-for="Telefono" class="text-danger small d-block mt-1"></span>
+                            </div>
+                        </div>
+
+                        <div class="bg-light p-3 rounded-3 border">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="RequiereValidarCompra" id="chkValidarCompra" />
+                                <label class="form-check-label small fw-semibold text-dark" for="chkValidarCompra">
+                                    Requiere Validación de Recepción en Almacén
+                                </label>
+                                <div class="text-muted small" style="font-size: 0.75rem;">Exige que el material o servicio haya sido recibido formalmente antes de permitir la radicación de la factura.</div>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" asp-for="OrdenCompraObligatoria" id="chkOCObligatoria" />
+                                <label class="form-check-label small fw-semibold text-dark" for="chkOCObligatoria">
+                                    Orden de Compra Obligatoria en Facturas
+                                </label>
+                                <div class="text-muted small" style="font-size: 0.75rem;">Requiere ingresar el folio de Orden de Compra vigente para que el comprobante sea procesado.</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" asp-for="EsProveedorNacional" id="chkNacional" />
+                                <label class="form-check-label small fw-semibold text-dark" for="chkNacional">
+                                    Proveedor Nacional (México)
+                                </label>
+                                <div class="text-muted small" style="font-size: 0.75rem;">Aplica validaciones estrictas de timbrado CFDI 4.0 del Servicio de Administración Tributaria.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloque 3: Credenciales de Acceso Inicial -->
+                    <div class="card card-custom p-4 mb-4 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+                            <div>
+                                <span class="badge bg-primary-subtle text-primary fw-bold text-uppercase" style="font-size: 0.7rem;">Paso 3</span>
+                                <h5 class="fw-bold text-dark mb-0 mt-1">
+                                    <i class="bi bi-shield-lock me-1 text-primary"></i> Credenciales de Acceso Inicial
+                                </h5>
+                                <span class="text-muted small">Genere o asigne una contraseña segura para el primer acceso del proveedor.</span>
+                            </div>
+                            <button type="button" class="btn btn-outline-dark btn-sm py-1 px-3 rounded-pill shadow-sm" id="btnGenerarPassword" style="font-size: 0.75rem;">
+                                <i class="bi bi-magic me-1"></i> Generar Contraseña Segura
+                            </button>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Password" class="form-label small fw-bold text-dark mb-1">Contraseña Inicial *</label>
+                                <div class="input-group radial-input-group">
+                                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                    <input asp-for="Password" id="regPassword" type="password" class="form-control radial-form-control" placeholder="Mínimo 8 caracteres" required minlength="8" />
+                                    <button class="btn password-toggle-btn px-2" type="button" id="toggleRegPasswordBtn" title="Ver contraseña">
+                                        <i class="bi bi-eye" id="toggleRegPasswordIcon"></i>
+                                    </button>
+                                </div>
+                                <span asp-validation-for="Password" class="text-danger small d-block mt-1"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="ConfirmPassword" class="form-label small fw-bold text-dark mb-1">Confirmar Contraseña *</label>
+                                <div class="input-group radial-input-group">
+                                    <span class="input-group-text"><i class="bi bi-check2-circle"></i></span>
+                                    <input asp-for="ConfirmPassword" id="regConfirmPassword" type="password" class="form-control radial-form-control" placeholder="Repita contraseña" required minlength="8" />
+                                </div>
+                                <span asp-validation-for="ConfirmPassword" class="text-danger small d-block mt-1"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción Final -->
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mb-4">
+                        <a asp-controller="Facturas" asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" id="btnRegistroSubmit" class="btn btn-radial px-5 py-2 fs-6 fw-bold shadow">
+                            <span id="btnRegSubmitText">
+                                <i class="bi bi-person-check-fill me-2"></i> Dar de Alta Proveedor en Portal
+                            </span>
+                            <span id="btnRegSubmitLoading" class="d-none">
+                                <span class="spinner-border spinner-border-sm me-2 text-dark" role="status" aria-hidden="true"></span>
+                                Registrando socio comercial...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Buscador de Proveedores en Catálogo ERP (Cat_Proveedores) -->
+        <div class="modal fade" id="modalBuscadorCatalogo" tabindex="-1" aria-labelledby="modalBuscadorCatalogoLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-light border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle">
+                                <i class="bi bi-search"></i>
+                            </div>
+                            <div>
+                                <h5 class="modal-title fw-bold text-dark mb-0" id="modalBuscadorCatalogoLabel">Catálogo Oficial de Proveedores ERP</h5>
+                                <span class="text-muted small">Radial Llantas México · Cat_Proveedores</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
+                            <i class="bi bi-info-circle-fill fs-5 me-2 text-info flex-shrink-0"></i>
+                            <div>
+                                Busque por Código ERP, RFC o Razón Social. Al seleccionar un proveedor disponible, sus datos fiscales se autocompletarán automáticamente en el formulario.
+                            </div>
+                        </div>
+
+                        <!-- Barra de búsqueda reactiva -->
+                        <div class="input-group radial-input-group mb-3">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="inputBuscarCatalogo" class="form-control radial-form-control text-uppercase" placeholder="Buscar por Razón Social, RFC o Código ERP..." autocomplete="off" />
+                            <button class="btn btn-outline-secondary px-3" type="button" id="btnLimpiarBusquedaCatalogo" title="Limpiar búsqueda">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <!-- Spinner de carga -->
+                        <div id="spinnerBuscadorCatalogo" class="text-center py-4 d-none">
+                            <div class="spinner-border text-warning" role="status" style="width: 2.5rem; height: 2.5rem;">
+                                <span class="visually-hidden">Cargando catálogo...</span>
+                            </div>
+                            <p class="text-muted small mt-2 mb-0">Consultando base central Cat_Proveedores...</p>
+                        </div>
+
+                        <!-- Contenedor de resultados / Tabla -->
+                        <div id="contenedorResultadosCatalogo" class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tablaResultadosCatalogo">
+                                <thead class="table-light small">
+                                    <tr>
+                                        <th>Código ERP</th>
+                                        <th>RFC</th>
+                                        <th>Razón Social</th>
+                                        <th class="text-center">Estado Portal</th>
+                                        <th class="text-end">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small" id="tbodyResultadosCatalogo">
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Estado vacío / Sin resultados -->
+                        <div id="estadoVacioCatalogo" class="text-center py-4 d-none">
+                            <i class="bi bi-folder-x text-muted" style="font-size: 2.5rem;"></i>
+                            <h6 class="fw-bold text-dark mt-2 mb-1">No se encontraron proveedores</h6>
+                            <p class="text-muted small mb-0">No hay coincidencias en Cat_Proveedores con el criterio especificado.</p>
+                        </div>
+
+                        <!-- Paginación y contador -->
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top small text-muted">
+                            <span id="txtResumenPaginacionCatalogo">Mostrando resultados</span>
+                            <div class="btn-group btn-group-sm" role="group" id="paginadorCatalogo">
+                                <button type="button" class="btn btn-outline-secondary" id="btnPaginaAnteriorCatalogo" disabled>
+                                    <i class="bi bi-chevron-left"></i> Anterior
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="btnPaginaSiguienteCatalogo" disabled>
+                                    Siguiente <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light py-2">
+                        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/proveedor-registro.js" asp-append-version="true"></script>
+}

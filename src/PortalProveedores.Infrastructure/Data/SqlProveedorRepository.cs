@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using PortalProveedores.Application.DTOs;
 using PortalProveedores.Application.Interfaces;
+using PortalProveedores.Core.Common;
 using PortalProveedores.Core.Entities;
 
 namespace PortalProveedores.Infrastructure.Data;
@@ -23,101 +24,118 @@ public class SqlProveedorRepository : IProveedorRepository
     public async Task<Proveedor?> ObtenerPorIdSpAsync(int id, CancellationToken ct = default)
     {
         using var connection = CreateConnection();
-        try
-        {
-            var parameters = new DynamicParameters();
-            parameters.Add("@Id", id, DbType.Int32);
+        var parameters = new DynamicParameters();
+        parameters.Add("@ProveedorId", id, DbType.Int32);
 
-            var cmd = new CommandDefinition(
-                commandText: "sp_Proveedor_ObtenerPorId",
-                parameters: parameters,
-                commandType: CommandType.StoredProcedure,
-                cancellationToken: ct
-            );
+        var cmd = new CommandDefinition(
+            commandText: "dbo.sp_Portal_Proveedor_ObtenerPorId",
+            parameters: parameters,
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: ct
+        );
 
-            return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
-        }
-        catch
-        {
-            return null;
-        }
+        return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
     }
 
     public async Task<Proveedor?> ObtenerPorRfcSpAsync(string rfc, CancellationToken ct = default)
     {
         using var connection = CreateConnection();
+        var parameters = new DynamicParameters();
+        parameters.Add("@RFC", rfc, DbType.String, size: 15);
 
-        // 1. Intentar mediante el procedimiento oficial sp_Portal_Usuario_ObtenerPorLogin
-        try
-        {
-            var parameters = new DynamicParameters();
-            parameters.Add("@Identificador", rfc, DbType.String, size: 120);
+        var cmd = new CommandDefinition(
+            commandText: "dbo.sp_Portal_Proveedor_ObtenerPorRfc",
+            parameters: parameters,
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: ct
+        );
 
-            var cmd = new CommandDefinition(
-                commandText: "dbo.sp_Portal_Usuario_ObtenerPorLogin",
-                parameters: parameters,
-                commandType: CommandType.StoredProcedure,
-                cancellationToken: ct
-            );
-
-            var usuario = await connection.QueryFirstOrDefaultAsync<UsuarioProveedor>(cmd);
-            if (usuario != null)
-            {
-                return new Proveedor
-                {
-                    ProveedorId = usuario.ProveedorId,
-                    CodigoProveedor = usuario.CodigoProveedor,
-                    RFC = usuario.RFC,
-                    RazonSocial = usuario.RazonSocial,
-                    CondicionesPago = usuario.CondicionesPago,
-                    RequiereValidarCompra = usuario.RequiereValidarCompra,
-                    OrdenCompraObligatoria = usuario.OrdenCompraObligatoria,
-                    Activo = usuario.ProveedorActivo
-                };
-            }
-        }
-        catch
-        {
-            // Continuar al procedimiento alternativo si existe
-        }
-
-        // 2. Procedimiento alternativo por RFC
-        try
-        {
-            var p = new DynamicParameters();
-            p.Add("@RFC", rfc, DbType.String, size: 15);
-            var cmd = new CommandDefinition("sp_Proveedor_ObtenerPorRfc", p, commandType: CommandType.StoredProcedure, cancellationToken: ct);
-            return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
-        }
-        catch
-        {
-            return null;
-        }
+        return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
     }
 
     public async Task<Proveedor?> ObtenerPorCodigoSpAsync(string codigoProveedor, CancellationToken ct = default)
     {
         using var connection = CreateConnection();
-        try
-        {
-            var parameters = new DynamicParameters();
-            parameters.Add("@CodigoProveedor", codigoProveedor, DbType.String, size: 15);
+        var parameters = new DynamicParameters();
+        parameters.Add("@CodigoProveedor", codigoProveedor, DbType.String, size: 15);
 
-            var cmd = new CommandDefinition(
-                commandText: "sp_Proveedor_ObtenerPorCodigo",
-                parameters: parameters,
-                commandType: CommandType.StoredProcedure,
-                cancellationToken: ct
-            );
+        var cmd = new CommandDefinition(
+            commandText: "dbo.sp_Portal_Proveedor_ObtenerPorCodigo",
+            parameters: parameters,
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: ct
+        );
 
-            return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
-        }
-        catch
-        {
-            return null;
-        }
+        return await connection.QueryFirstOrDefaultAsync<Proveedor>(cmd);
     }
 
+    /// <summary>
+    /// Consulta el catálogo oficial Cat_Proveedores mediante el Stored Procedure dbo.sp_Portal_Proveedor_VerificarEnCatalogo.
+    /// Valida que el proveedor exista previamente en el ERP central antes de permitir el registro en el portal.
+    /// </summary>
+    public async Task<VerificarProveedorCatalogoDto> VerificarEnCatalogoSpAsync(
+        string? rfc,
+        string? codigoProveedor,
+        CancellationToken ct = default)
+    {
+        using var connection = CreateConnection();
+        var parameters = new DynamicParameters();
+        parameters.Add("@RFC", rfc, DbType.String, size: 15);
+        parameters.Add("@CodigoProveedor", codigoProveedor, DbType.String, size: 15);
+
+        var cmd = new CommandDefinition(
+            commandText: "dbo.sp_Portal_Proveedor_VerificarEnCatalogo",
+            parameters: parameters,
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: ct
+        );
+
+        var resultadoSp = await connection.QueryFirstOrDefaultAsync<VerificarProveedorCatalogoDto>(cmd);
+        return resultadoSp ?? new VerificarProveedorCatalogoDto
+        {
+            EnCatalogo = false,
+            CodigoProveedor = codigoProveedor,
+            RFC = rfc,
+            Mensaje = "El proveedor no se encuentra en el Catálogo de Proveedores de Radial Llantas (Cat_Proveedores)."
+        };
+    }
+
+    /// <summary>
+    /// Consulta paginada y búsqueda sargable de proveedores mediante el Stored Procedure dbo.sp_Portal_Proveedor_BuscarEnCatalogo.
+    /// </summary>
+    public async Task<PaginatedResult<ProveedorCatalogoItemDto>> BuscarEnCatalogoSpAsync(
+        string? termino,
+        int pagina = 1,
+        int tamanoPagina = 20,
+        CancellationToken ct = default)
+    {
+        using var connection = CreateConnection();
+        pagina = pagina < 1 ? 1 : pagina;
+        tamanoPagina = tamanoPagina switch { < 1 => 20, > 100 => 100, _ => tamanoPagina };
+
+        var parameters = new DynamicParameters();
+        parameters.Add("@Termino", termino, DbType.String, size: 100);
+        parameters.Add("@Pagina", pagina, DbType.Int32);
+        parameters.Add("@TamanoPagina", tamanoPagina, DbType.Int32);
+
+        var cmd = new CommandDefinition(
+            commandText: "dbo.sp_Portal_Proveedor_BuscarEnCatalogo",
+            parameters: parameters,
+            commandType: CommandType.StoredProcedure,
+            cancellationToken: ct
+        );
+
+        using var multi = await connection.QueryMultipleAsync(cmd);
+        int totalRegistros = await multi.ReadFirstOrDefaultAsync<int>();
+        var items = (await multi.ReadAsync<ProveedorCatalogoItemDto>()).ToList();
+
+        return new PaginatedResult<ProveedorCatalogoItemDto>(items, totalRegistros, pagina, tamanoPagina);
+    }
+
+    /// <summary>
+    /// Registra el usuario de acceso al portal para un proveedor que YA EXISTE en Cat_Proveedores.
+    /// REGLA ESTRICTA: No se inserta un nuevo registro en Cat_Proveedores. Si el proveedor no existe, se rechaza.
+    /// </summary>
     public async Task<ResultadoCrearProveedorDto> CrearProveedorCompletoAsync(
         CrearProveedorDto dto,
         string passwordHash,
@@ -138,208 +156,93 @@ public class SqlProveedorRepository : IProveedorRepository
             }
         }
 
-        using var transaction = connection.BeginTransaction();
+        // 1. REGLA FUNDAMENTAL: Verificar existencia previa en Cat_Proveedores
+        var verificacion = await VerificarEnCatalogoSpAsync(dto.RFC, dto.CodigoProveedor, ct);
+        if (!verificacion.EnCatalogo || !verificacion.ProveedorId.HasValue)
+        {
+            return new ResultadoCrearProveedorDto
+            {
+                Exitoso = false,
+                Mensaje = $"No se puede registrar el proveedor: El RFC '{dto.RFC}' o Código '{dto.CodigoProveedor}' no se encuentra en el Catálogo Oficial de Proveedores de Radial Llantas (Cat_Proveedores)."
+            };
+        }
+
+        if (!verificacion.Activo)
+        {
+            return new ResultadoCrearProveedorDto
+            {
+                Exitoso = false,
+                Mensaje = $"El proveedor '{verificacion.RazonSocial}' existe en el catálogo pero se encuentra inactivo."
+            };
+        }
+
+        if (verificacion.TieneUsuarioRegistrado)
+        {
+            return new ResultadoCrearProveedorDto
+            {
+                Exitoso = false,
+                Mensaje = $"El proveedor '{verificacion.RazonSocial}' ya cuenta con una cuenta de usuario en el portal ({verificacion.EmailRegistrado})."
+            };
+        }
+
+        int proveedorId = verificacion.ProveedorId.Value;
+        string codigoProveedorOficial = verificacion.CodigoProveedor ?? dto.CodigoProveedor;
+        string rfcOficial = verificacion.RFC ?? dto.RFC;
+
+        // 2. Intentar inserción mediante el Stored Procedure oficial sp_Portal_Admin_CrearUsuarioProveedor
         try
         {
-            // 1. Detectar si la tabla es Cat_Proveedores (PortalProveedores_DB) o Proveedores (PortalProveedoresDB)
-            bool esCatProveedores = await connection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(1) FROM sys.tables WHERE name = 'Cat_Proveedores';",
-                transaction: transaction) > 0;
+            var spParams = new DynamicParameters();
+            spParams.Add("@AdminUsuarioId", adminUsuarioId, DbType.Int32);
+            spParams.Add("@CodigoProveedor", codigoProveedorOficial, DbType.String, size: 15);
+            spParams.Add("@RFC", rfcOficial, DbType.String, size: 15);
+            spParams.Add("@Email", dto.Email, DbType.String, size: 120);
+            spParams.Add("@PasswordHash", passwordHash, DbType.String, size: 255);
+            spParams.Add("@DireccionIP", direccionIp, DbType.String, size: 45);
+            spParams.Add("@CodigoPostal", dto.CodigoPostal, DbType.String, size: 10);
+            spParams.Add("@Telefono", dto.Telefono, DbType.String, size: 50);
+            spParams.Add("@EmailContacto", dto.Email, DbType.String, size: 150);
+            spParams.Add("@RegimenFiscal", dto.RegimenFiscal, DbType.String, size: 10);
+            spParams.Add("@RequiereValidarCompra", dto.RequiereValidarCompra, DbType.Boolean);
+            spParams.Add("@OrdenCompraObligatoria", dto.OrdenCompraObligatoria, DbType.Boolean);
+            spParams.Add("@EsProveedorNacional", dto.EsProveedorNacional, DbType.Boolean);
+            spParams.Add("@CondicionesPago", dto.CondicionesPago, DbType.String, size: 50);
+            spParams.Add("@NuevoUsuarioId", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-            int proveedorId = 0;
-            int usuarioId = 0;
+            var spCmd = new CommandDefinition(
+                commandText: "dbo.sp_Portal_Admin_CrearUsuarioProveedor",
+                parameters: spParams,
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: ct
+            );
 
-            if (esCatProveedores)
-            {
-                // Verificar duplicados de CodigoProveedor y RFC
-                var existeCodigo = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM dbo.Cat_Proveedores WHERE CodigoProveedor = @CodigoProveedor;",
-                    new { dto.CodigoProveedor },
-                    transaction: transaction) > 0;
-
-                if (existeCodigo)
-                {
-                    return new ResultadoCrearProveedorDto
-                    {
-                        Exitoso = false,
-                        Mensaje = $"El código de proveedor '{dto.CodigoProveedor}' ya se encuentra registrado."
-                    };
-                }
-
-                var existeRfc = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM dbo.Cat_Proveedores WHERE RFC = @RFC;",
-                    new { dto.RFC },
-                    transaction: transaction) > 0;
-
-                if (existeRfc)
-                {
-                    return new ResultadoCrearProveedorDto
-                    {
-                        Exitoso = false,
-                        Mensaje = $"El RFC '{dto.RFC}' ya está registrado en el catálogo de proveedores."
-                    };
-                }
-
-                var existeEmail = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM dbo.Usuarios_Proveedor WHERE Email = @Email;",
-                    new { dto.Email },
-                    transaction: transaction) > 0;
-
-                if (existeEmail)
-                {
-                    return new ResultadoCrearProveedorDto
-                    {
-                        Exitoso = false,
-                        Mensaje = $"El correo electrónico '{dto.Email}' ya está asignado a otro usuario."
-                    };
-                }
-
-                // Insertar en Cat_Proveedores
-                const string sqlCat = @"
-                    INSERT INTO dbo.Cat_Proveedores (
-                        CodigoProveedor, RFC, RazonSocial, CondicionesPago,
-                        RequiereValidarCompra, OrdenCompraObligatoria, EsProveedorNacional, Activo,
-                        CreatedAt, UpdatedAt
-                    )
-                    VALUES (
-                        @CodigoProveedor, @RFC, @RazonSocial, @CondicionesPago,
-                        @RequiereValidarCompra, @OrdenCompraObligatoria, @EsProveedorNacional, @Activo,
-                        SYSUTCDATETIME(), SYSUTCDATETIME()
-                    );
-                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
-
-                proveedorId = await connection.ExecuteScalarAsync<int>(
-                    sqlCat,
-                    new
-                    {
-                        dto.CodigoProveedor,
-                        dto.RFC,
-                        dto.RazonSocial,
-                        dto.CondicionesPago,
-                        dto.RequiereValidarCompra,
-                        dto.OrdenCompraObligatoria,
-                        dto.EsProveedorNacional,
-                        dto.Activo
-                    },
-                    transaction: transaction);
-
-                // Insertar en Usuarios_Proveedor
-                const string sqlUserProv = @"
-                    INSERT INTO dbo.Usuarios_Proveedor (
-                        ProveedorId, RFC, Email, PasswordHash, IntentosFallidos,
-                        BloqueadoHasta, Activo, CreatedAt, UpdatedAt
-                    )
-                    VALUES (
-                        @ProveedorId, @RFC, @Email, @PasswordHash, 0,
-                        NULL, @Activo, SYSUTCDATETIME(), SYSUTCDATETIME()
-                    );
-                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
-
-                usuarioId = await connection.ExecuteScalarAsync<int>(
-                    sqlUserProv,
-                    new
-                    {
-                        ProveedorId = proveedorId,
-                        dto.RFC,
-                        dto.Email,
-                        PasswordHash = passwordHash,
-                        dto.Activo
-                    },
-                    transaction: transaction);
-
-                // Auditoría si existe tabla
-                var existeAuditoria = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM sys.tables WHERE name = 'Auditoria_Eventos';",
-                    transaction: transaction) > 0;
-
-                if (existeAuditoria)
-                {
-                    const string sqlAudit = @"
-                        INSERT INTO dbo.Auditoria_Eventos (UsuarioId, Modulo, Accion, Detalle, DireccionIP, CreatedAt)
-                        VALUES (@UsuarioId, 'ADMIN_PROVEEDORES', 'CREAR_PROVEEDOR', @Detalle, @DireccionIP, SYSUTCDATETIME());";
-
-                    await connection.ExecuteAsync(
-                        sqlAudit,
-                        new
-                        {
-                            UsuarioId = adminUsuarioId,
-                            Detalle = $"Proveedor registrado: {dto.RazonSocial} (RFC: {dto.RFC}, Código: {dto.CodigoProveedor})",
-                            DireccionIP = direccionIp
-                        },
-                        transaction: transaction);
-                }
-            }
-            else
-            {
-                // Esquema alternativo Proveedores / Usuarios
-                var existeRfc = await connection.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(1) FROM dbo.Proveedores WHERE RFC = @RFC;",
-                    new { dto.RFC },
-                    transaction: transaction) > 0;
-
-                if (existeRfc)
-                {
-                    return new ResultadoCrearProveedorDto
-                    {
-                        Exitoso = false,
-                        Mensaje = $"El RFC '{dto.RFC}' ya está registrado en el catálogo."
-                    };
-                }
-
-                const string sqlProv = @"
-                    INSERT INTO dbo.Proveedores (RFC, RazonSocial, EmailContacto, Telefono, Activo, FechaRegistro)
-                    VALUES (@RFC, @RazonSocial, @Email, @Telefono, @Activo, SYSUTCDATETIME());
-                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
-
-                proveedorId = await connection.ExecuteScalarAsync<int>(
-                    sqlProv,
-                    new
-                    {
-                        dto.RFC,
-                        dto.RazonSocial,
-                        dto.Email,
-                        dto.Telefono,
-                        dto.Activo
-                    },
-                    transaction: transaction);
-
-                const string sqlUser = @"
-                    INSERT INTO dbo.Usuarios (Username, Email, PasswordHash, Salt, Rol, ProveedorId, Activo, IntentosFallidosLogin, FechaCreacion)
-                    VALUES (@Username, @Email, @PasswordHash, '', 1, @ProveedorId, @Activo, 0, SYSUTCDATETIME());
-                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
-
-                usuarioId = await connection.ExecuteScalarAsync<int>(
-                    sqlUser,
-                    new
-                    {
-                        Username = dto.RFC,
-                        dto.Email,
-                        PasswordHash = passwordHash,
-                        ProveedorId = proveedorId,
-                        dto.Activo
-                    },
-                    transaction: transaction);
-            }
-
-            transaction.Commit();
+            await connection.ExecuteAsync(spCmd);
+            int nuevoUsuarioId = spParams.Get<int>("@NuevoUsuarioId");
 
             return new ResultadoCrearProveedorDto
             {
                 Exitoso = true,
-                Mensaje = $"Proveedor '{dto.RazonSocial}' dado de alta exitosamente con código {dto.CodigoProveedor}.",
+                Mensaje = $"Proveedor '{verificacion.RazonSocial}' habilitado exitosamente en el portal.",
                 ProveedorId = proveedorId,
-                UsuarioId = usuarioId,
-                CodigoProveedor = dto.CodigoProveedor,
-                RFC = dto.RFC
+                UsuarioId = nuevoUsuarioId,
+                CodigoProveedor = codigoProveedorOficial,
+                RFC = rfcOficial
+            };
+        }
+        catch (SqlException ex)
+        {
+            return new ResultadoCrearProveedorDto
+            {
+                Exitoso = false,
+                Mensaje = ex.Message
             };
         }
         catch (Exception ex)
         {
-            transaction.Rollback();
             return new ResultadoCrearProveedorDto
             {
                 Exitoso = false,
-                Mensaje = $"Error al registrar proveedor: {ex.Message}"
+                Mensaje = $"Error al registrar usuario de proveedor: {ex.Message}"
             };
         }
     }

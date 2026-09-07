@@ -239,24 +239,15 @@ body {
   max-width: 540px;
 }
 
-#authTabs .nav-link {
-  color: var(--radial-gray-600);
-  border-radius: var(--radial-radius-md);
-  font-size: 0.88rem;
-  transition: all 0.2s ease;
-  border: none;
+/* Animación de rotación para iconos de carga reactiva */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-#authTabs .nav-link:hover:not(.active) {
-  color: var(--radial-gray-900);
-  background-color: var(--radial-gray-200);
-}
-
-#authTabs .nav-link.active {
-  background-color: var(--radial-yellow);
-  color: #000000 !important;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(245, 183, 0, 0.35);
+.bi-spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
 }
 
 .form-section-title {
@@ -353,3 +344,19 @@ body {
   box-shadow: var(--radial-shadow-md);
   background-color: #FFFFFF;
 }
+
+/* Animación de rotación para iconos de sincronización y búsqueda */
+.bi-spin {
+  animation: bi-spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes bi-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+

@@ -35,7 +35,17 @@ public interface IProveedorRepository
     Task<Proveedor?> ObtenerPorIdSpAsync(int id, CancellationToken ct = default);
     Task<Proveedor?> ObtenerPorRfcSpAsync(string rfc, CancellationToken ct = default);
     Task<Proveedor?> ObtenerPorCodigoSpAsync(string codigoProveedor, CancellationToken ct = default);
+    Task<VerificarProveedorCatalogoDto> VerificarEnCatalogoSpAsync(string? rfc, string? codigoProveedor, CancellationToken ct = default);
+    Task<PaginatedResult<ProveedorCatalogoItemDto>> BuscarEnCatalogoSpAsync(string? termino, int pagina = 1, int tamanoPagina = 20, CancellationToken ct = default);
     Task<ResultadoCrearProveedorDto> CrearProveedorCompletoAsync(CrearProveedorDto dto, string passwordHash, int adminUsuarioId, string direccionIp, CancellationToken ct = default);
+}
+
+public interface IProveedorService
+{
+    Task<ApiResponse<VerificarProveedorCatalogoDto>> VerificarEnCatalogoAsync(string? rfc, string? codigoProveedor, CancellationToken ct = default);
+    Task<ApiResponse<PaginatedResult<ProveedorCatalogoItemDto>>> BuscarEnCatalogoAsync(string? termino, int pagina = 1, int tamanoPagina = 20, CancellationToken ct = default);
+    Task<ApiResponse<ResultadoCrearProveedorDto>> RegistrarProveedorAsync(CrearProveedorDto dto, int adminUsuarioId, string ipAddress, CancellationToken ct = default);
+    Task<Proveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
 }
 
 public interface IUsuarioRepository

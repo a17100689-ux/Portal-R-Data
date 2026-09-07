@@ -55,11 +55,25 @@ public class CryptoService : ICryptoService
         if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(storedHash))
             return false;
 
-        // Formato compuesto {salt}:{hash}
+        // Formato compuesto {salt}:{hash} o {hash}:{salt}
         if (storedHash.Contains(':'))
         {
             var parts = storedHash.Split(':', 2);
-            return VerifyPassword(password, parts[1], parts[0]);
+            if (parts[0].Length == 44 && parts[1].Length == 88)
+            {
+                // {salt}:{hash}
+                return VerifyPassword(password, parts[1], parts[0]);
+            }
+            else if (parts[0].Length == 88 && parts[1].Length == 44)
+            {
+                // {hash}:{salt}
+                return VerifyPassword(password, parts[0], parts[1]);
+            }
+            else
+            {
+                // Fallback attempt both
+                return VerifyPassword(password, parts[1], parts[0]) || VerifyPassword(password, parts[0], parts[1]);
+            }
         }
 
         return false;

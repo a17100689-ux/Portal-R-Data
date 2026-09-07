@@ -6,6 +6,7 @@ using PortalProveedores.Application.Services;
 using PortalProveedores.Infrastructure.Data;
 using PortalProveedores.Infrastructure.Storage;
 using PortalProveedores.Web.Middlewares;
+using PortalProveedores.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,14 +19,26 @@ builder.Services.AddSingleton<IStorageService, SecureFileStorageService>();
 builder.Services.AddScoped<IFacturaRepository, SqlFacturaRepository>();
 builder.Services.AddScoped<IProveedorRepository, SqlProveedorRepository>();
 builder.Services.AddScoped<IUsuarioRepository, SqlUsuarioRepository>();
-builder.Services.AddScoped<IFacturaService, FacturaService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISyncRepository, SqlSyncRepository>();
 
-// 2. Configuración de Controladores y Vistas con Protección Antiforgery
-builder.Services.AddControllersWithViews(options =>
+builder.Services.AddScoped<IFacturaService, FacturaService>();
+builder.Services.AddScoped<IProveedorService, ProveedorService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISyncService, SyncService>();
+
+// Sincronización continua en segundo plano (Background Worker Service)
+builder.Services.AddHostedService<PortalSyncBackgroundService>();
+
+// 2. Configuración de Controladores y Vistas con Protección Antiforgery y Recarga en Tiempo Real
+var mvcBuilder = builder.Services.AddControllersWithViews(options =>
 {
     // Aplicar validación de token Antiforgery global o por atributos
 });
+
+if (builder.Environment.IsDevelopment())
+{
+    mvcBuilder.AddRazorRuntimeCompilation();
+}
 
 // Configuración de Antiforgery con Cookies Seguras
 builder.Services.AddAntiforgery(options =>

@@ -12,6 +12,10 @@ public class Proveedor
     public bool OrdenCompraObligatoria { get; set; } = true;
     public bool EsProveedorNacional { get; set; } = true;
     public bool Activo { get; set; } = true;
+    public string? CodigoPostal { get; set; }
+    public string? Telefono { get; set; }
+    public string? EmailContacto { get; set; }
+    public string? RegimenFiscal { get; set; }
     public DateTime FechaRegistro { get; set; } = DateTime.UtcNow;
     public ICollection<Factura> Facturas { get; set; } = new List<Factura>();
 }

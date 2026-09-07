@@ -56,9 +56,8 @@ public class RegistroProveedorViewModel
     [Display(Name = "Código Interno de Proveedor (ERP)")]
     public string CodigoProveedor { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "El régimen fiscal es obligatorio.")]
     [Display(Name = "Régimen Fiscal (SAT)")]
-    public string RegimenFiscal { get; set; } = "601";
+    public string? RegimenFiscal { get; set; } = "601";
 
     [Required(ErrorMessage = "El código postal fiscal es obligatorio.")]
     [RegularExpression(@"^\d{5}$", ErrorMessage = "El código postal debe ser numérico de 5 dígitos.")]

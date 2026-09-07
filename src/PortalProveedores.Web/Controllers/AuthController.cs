@@ -13,35 +13,26 @@ namespace PortalProveedores.Web.Controllers;
 public class AuthController : Controller
 {
     private readonly IAuthService _authService;
-    private readonly IProveedorRepository _proveedorRepo;
-    private readonly ICryptoService _cryptoService;
+    private readonly IProveedorService _proveedorService;
 
     public AuthController(
         IAuthService authService,
-        IProveedorRepository proveedorRepo,
-        ICryptoService cryptoService)
+        IProveedorService proveedorService)
     {
         _authService = authService;
-        _proveedorRepo = proveedorRepo;
-        _cryptoService = cryptoService;
+        _proveedorService = proveedorService;
     }
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null, string? tab = null)
+    public IActionResult Login(string? returnUrl = null)
     {
-        bool esAdmin = User.Identity?.IsAuthenticated == true &&
-            (User.IsInRole("Administrador") || User.IsInRole("Admin") || User.HasClaim("EsAdmin", "true"));
-
-        if (User.Identity?.IsAuthenticated == true && !esAdmin)
+        if (User.Identity?.IsAuthenticated == true)
         {
             return RedirectToAction("Index", "Facturas");
         }
 
         ViewData["ReturnUrl"] = returnUrl;
-        ViewData["ActiveTab"] = !string.IsNullOrEmpty(tab) ? tab : (esAdmin ? "registro" : "login");
-        ViewData["EsAdmin"] = esAdmin;
-
         return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 
@@ -124,32 +115,43 @@ public class AuthController : Controller
         return RedirectToAction("Login", "Auth");
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RegistrarProveedor(RegistroProveedorViewModel model, CancellationToken ct)
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult Registro()
     {
         bool esAdmin = User.Identity?.IsAuthenticated == true &&
-            (User.IsInRole("Administrador") || User.IsInRole("Admin") || User.HasClaim("EsAdmin", "true"));
+            (User.IsInRole("Administrador") || User.IsInRole("Admin") || User.IsInRole("ADMIN") ||
+             User.IsInRole("COMPRAS") || User.IsInRole("MESA_CONTROL") || User.HasClaim("EsAdmin", "true"));
+
+        ViewData["EsAdmin"] = esAdmin;
+        return View(new RegistroProveedorViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Registro(RegistroProveedorViewModel model, CancellationToken ct)
+    {
+        bool esAdmin = User.Identity?.IsAuthenticated == true &&
+            (User.IsInRole("Administrador") || User.IsInRole("Admin") || User.IsInRole("ADMIN") ||
+             User.IsInRole("COMPRAS") || User.IsInRole("MESA_CONTROL") || User.HasClaim("EsAdmin", "true"));
+
+        ViewData["EsAdmin"] = esAdmin;
 
         if (!esAdmin)
         {
             TempData["MensajeError"] = "Acceso restringido. Solo los usuarios con rol de Administrador pueden dar de alta proveedores.";
-            return RedirectToAction("Login", new { tab = "login" });
+            return RedirectToAction("Registro");
         }
 
         if (!ModelState.IsValid)
         {
-            ViewData["ActiveTab"] = "registro";
-            ViewData["EsAdmin"] = true;
-            ViewData["RegistroModel"] = model;
-            return View("Login", new LoginViewModel());
+            return View(model);
         }
 
-        string passwordHash = _cryptoService.HashPassword(model.Password);
         int adminId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int parsedId) ? parsedId : 1;
         string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
 
-        var resultado = await _proveedorRepo.CrearProveedorCompletoAsync(new CrearProveedorDto
+        var resultado = await _proveedorService.RegistrarProveedorAsync(new CrearProveedorDto
         {
             CodigoProveedor = model.CodigoProveedor.Trim().ToUpperInvariant(),
             RFC = model.RFC.Trim().ToUpperInvariant(),
@@ -164,19 +166,23 @@ public class AuthController : Controller
             OrdenCompraObligatoria = model.OrdenCompraObligatoria,
             EsProveedorNacional = model.EsProveedorNacional,
             Activo = model.Activo
-        }, passwordHash, adminId, ipAddress, ct);
+        }, adminId, ipAddress, ct);
 
-        if (!resultado.Exitoso)
+        if (!resultado.Success)
         {
-            ModelState.AddModelError(string.Empty, resultado.Mensaje);
-            ViewData["ActiveTab"] = "registro";
-            ViewData["EsAdmin"] = true;
-            ViewData["RegistroModel"] = model;
-            return View("Login", new LoginViewModel());
+            ModelState.AddModelError(string.Empty, resultado.Message);
+            return View(model);
         }
 
-        TempData["MensajeExito"] = $"Proveedor '{model.RazonSocial}' (RFC: {model.RFC}) registrado con éxito con código '{model.CodigoProveedor}'.";
-        return RedirectToAction("Login", new { tab = "registro" });
+        TempData["MensajeExito"] = resultado.Message;
+        return RedirectToAction("Registro");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> RegistrarProveedor(RegistroProveedorViewModel model, CancellationToken ct)
+    {
+        return Registro(model, ct);
     }
 
     [HttpGet]
