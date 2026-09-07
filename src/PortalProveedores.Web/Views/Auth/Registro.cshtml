@@ -120,7 +120,7 @@
                                         <i class="bi bi-arrow-clockwise" id="iconBuscarCodigo"></i>
                                     </button>
                                 </div>
-                                <span class="text-muted" style="font-size: 0.7rem;">Ingrese el código ERP para cargar datos automáticamente.</span>
+                                <span class="text-muted" style="font-size: 0.7rem;">Ingrese el código de proveedor para cargar datos automáticamente.</span>
                                 <span asp-validation-for="CodigoProveedor" class="text-danger small d-block mt-1"></span>
                             </div>
 
@@ -154,7 +154,7 @@
                                 </label>
                                 <div class="input-group radial-input-group">
                                     <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                                    <input asp-for="CodigoPostal" id="regCodigoPostal" class="form-control radial-form-control" placeholder="44920" maxlength="5" pattern="\d{5}" required />
+                                    <input asp-for="CodigoPostal" id="regCodigoPostal" class="form-control radial-form-control" placeholder="C.P" maxlength="5" pattern="\d{5}" required />
                                 </div>
                                 <span asp-validation-for="CodigoPostal" class="text-danger small d-block mt-1"></span>
                             </div>
@@ -196,9 +196,9 @@
                             <div class="col-md-4">
                                 <label asp-for="Email" class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
                                     <span>Correo Electrónico Oficial *</span>
-                                    <span id="badgeEmailAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado (editable)</span>
+                                    <span id="badgeEmailAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado </span>
                                 </label>
-                                <input asp-for="Email" id="regEmail" type="email" class="form-control radial-form-control" placeholder="facturacion@proveedor.com" required />
+                                <input asp-for="Email" id="regEmail" type="email" class="form-control radial-form-control" placeholder="Ingrese Correo" required />
                                 <span asp-validation-for="Email" class="text-danger small d-block mt-1"></span>
                             </div>
                             <div class="col-md-4">
@@ -206,7 +206,7 @@
                                     <span>Teléfono de Contacto</span>
                                     <span id="badgeTelAutollenado" class="badge bg-success-subtle text-success d-none" style="font-size: 0.65rem;">✓ Precargado</span>
                                 </label>
-                                <input asp-for="Telefono" id="regTelefono" type="tel" class="form-control radial-form-control" placeholder="33 1234 5678" maxlength="50" />
+                                <input asp-for="Telefono" id="regTelefono" type="tel" class="form-control radial-form-control" placeholder="Ingrese Teléfono" maxlength="50" />
                                 <span asp-validation-for="Telefono" class="text-danger small d-block mt-1"></span>
                             </div>
                         </div>
@@ -313,17 +313,30 @@
                         <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
                             <i class="bi bi-info-circle-fill fs-5 me-2 text-info flex-shrink-0"></i>
                             <div>
-                                Busque por Código ERP, RFC o Razón Social. Al seleccionar un proveedor disponible, sus datos fiscales se autocompletarán automáticamente en el formulario.
+                                Busque por Código de Proveedor, RFC o Razón Social. Al seleccionar un proveedor disponible, sus datos fiscales se autocompletarán automáticamente en el formulario.
                             </div>
                         </div>
 
-                        <!-- Barra de búsqueda reactiva -->
-                        <div class="input-group radial-input-group mb-3">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" id="inputBuscarCatalogo" class="form-control radial-form-control text-uppercase" placeholder="Buscar por Razón Social, RFC o Código ERP..." autocomplete="off" />
-                            <button class="btn btn-outline-secondary px-3" type="button" id="btnLimpiarBusquedaCatalogo" title="Limpiar búsqueda">
-                                <i class="bi bi-x-lg"></i>
+                        <!-- Barra de búsqueda reactiva y botón de refresco manual ERP -->
+                        <div class="d-flex flex-column flex-sm-row gap-2 mb-3">
+                            <div class="input-group radial-input-group flex-grow-1">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="inputBuscarCatalogo" class="form-control radial-form-control text-uppercase" placeholder="Buscar por Razón Social, RFC o Código de Proveedor..." autocomplete="off" />
+                                <button class="btn btn-outline-secondary px-3" type="button" id="btnLimpiarBusquedaCatalogo" title="Limpiar búsqueda">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <button type="button" class="btn btn-outline-success d-flex align-items-center justify-content-center gap-1 text-nowrap px-3 shadow-sm rounded-2" id="btnSincronizarCatalogoModal" title="Sincronizar catálogo completo con el ERP Central (Punto de Venta)">
+                                <i class="bi bi-arrow-repeat" id="iconSyncModal"></i>
+                                <span id="txtSyncModal">Refrescar ERP</span>
                             </button>
+                        </div>
+
+                        <!-- Alerta de feedback de sincronización dentro del modal -->
+                        <div id="alertSyncModal" class="alert alert-success py-2 px-3 small rounded-3 d-none mb-3 shadow-sm d-flex align-items-center" role="alert">
+                            <i class="bi bi-check-circle-fill text-success fs-5 me-2 flex-shrink-0" id="alertSyncModalIcon"></i>
+                            <div class="flex-grow-1" id="alertSyncModalTexto">Catálogo sincronizado exitosamente con el ERP Central.</div>
+                            <button type="button" class="btn-close ms-2" aria-label="Cerrar" onclick="document.getElementById('alertSyncModal').classList.add('d-none');"></button>
                         </div>
 
                         <!-- Spinner de carga -->
@@ -331,7 +344,7 @@
                             <div class="spinner-border text-warning" role="status" style="width: 2.5rem; height: 2.5rem;">
                                 <span class="visually-hidden">Cargando catálogo...</span>
                             </div>
-                            <p class="text-muted small mt-2 mb-0">Consultando base central Cat_Proveedores...</p>
+                            <p class="text-muted small mt-2 mb-0" id="spinnerTextBuscador">Consultando base central Cat_Proveedores...</p>
                         </div>
 
                         <!-- Contenedor de resultados / Tabla -->
@@ -339,7 +352,7 @@
                             <table class="table table-hover align-middle mb-0" id="tablaResultadosCatalogo">
                                 <thead class="table-light small">
                                     <tr>
-                                        <th>Código ERP</th>
+                                        <th>Código de Proveedor</th>
                                         <th>RFC</th>
                                         <th>Razón Social</th>
                                         <th class="text-center">Estado Portal</th>
@@ -352,11 +365,14 @@
                             </table>
                         </div>
 
-                        <!-- Estado vacío / Sin resultados -->
+                        <!-- Estado vacío / Sin resultados con botón de sincronización -->
                         <div id="estadoVacioCatalogo" class="text-center py-4 d-none">
                             <i class="bi bi-folder-x text-muted" style="font-size: 2.5rem;"></i>
-                            <h6 class="fw-bold text-dark mt-2 mb-1">No se encontraron proveedores</h6>
-                            <p class="text-muted small mb-0">No hay coincidencias en Cat_Proveedores con el criterio especificado.</p>
+                            <h6 class="fw-bold text-dark mt-2 mb-1">No se encontraron proveedores en la base local</h6>
+                            <p class="text-muted small mb-3">¿Acaba de registrar este socio en el ERP? Presione el botón para sincronizar con la base central:</p>
+                            <button type="button" class="btn btn-sm btn-success rounded-pill px-3 shadow-sm" id="btnSyncDesdeEstadoVacio">
+                                <i class="bi bi-arrow-repeat me-1"></i> Sincronizar con ERP Central Ahora
+                            </button>
                         </div>
 
                         <!-- Paginación y contador -->

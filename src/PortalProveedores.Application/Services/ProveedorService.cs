@@ -17,6 +17,7 @@ public class ProveedorService : IProveedorService
     private readonly IProveedorRepository _proveedorRepo;
     private readonly ICryptoService _cryptoService;
     private readonly IUsuarioRepository _usuarioRepo;
+    private readonly ISyncService _syncService;
     private readonly ILogger<ProveedorService> _logger;
 
     private static readonly Regex RfcRegex = new(
@@ -27,17 +28,20 @@ public class ProveedorService : IProveedorService
         IProveedorRepository proveedorRepo,
         ICryptoService cryptoService,
         IUsuarioRepository usuarioRepo,
+        ISyncService syncService,
         ILogger<ProveedorService> logger)
     {
         _proveedorRepo = proveedorRepo;
         _cryptoService = cryptoService;
         _usuarioRepo = usuarioRepo;
+        _syncService = syncService;
         _logger = logger;
     }
 
     /// <summary>
     /// Consulta el catálogo oficial (Cat_Proveedores) para validar si el proveedor es un socio comercial
     /// registrado en el ERP de Radial Llantas y verifica si ya cuenta con credenciales activas en el portal.
+    /// Si no se encuentra en el caché local, intenta sincronizar con el ERP Central antes de responder.
     /// </summary>
     public async Task<ApiResponse<VerificarProveedorCatalogoDto>> VerificarEnCatalogoAsync(
         string? rfc,
@@ -55,11 +59,24 @@ public class ProveedorService : IProveedorService
         }
 
         var resultado = await _proveedorRepo.VerificarEnCatalogoSpAsync(rfcLimpio, codigoLimpio, ct);
+
+        // Si no se encontró en la base local del portal, sincronizar desde Punto_de_Venta
+        if (!resultado.EnCatalogo && _syncService != null)
+        {
+            _logger.LogInformation("Proveedor RFC '{RFC}', Código '{Codigo}' no encontrado localmente. Sincronizando con ERP Central...", rfcLimpio, codigoLimpio);
+            var syncResult = await _syncService.RefrescarCatalogosAsync(ct);
+            if (syncResult.Exitoso)
+            {
+                resultado = await _proveedorRepo.VerificarEnCatalogoSpAsync(rfcLimpio, codigoLimpio, ct);
+            }
+        }
+
         return ApiResponse<VerificarProveedorCatalogoDto>.Ok(resultado, resultado.Mensaje);
     }
 
     /// <summary>
     /// Búsqueda sargable y paginada de proveedores en Cat_Proveedores para el buscador reactivo del portal.
+    /// Si el término de búsqueda no arroja resultados locales, sincroniza con el ERP Central y reintenta.
     /// </summary>
     public async Task<ApiResponse<PaginatedResult<ProveedorCatalogoItemDto>>> BuscarEnCatalogoAsync(
         string? termino,
@@ -72,6 +89,18 @@ public class ProveedorService : IProveedorService
         tamanoPagina = tamanoPagina switch { < 1 => 20, > 100 => 100, _ => tamanoPagina };
 
         var resultado = await _proveedorRepo.BuscarEnCatalogoSpAsync(terminoLimpio, pagina, tamanoPagina, ct);
+
+        // Si no hubo resultados y se ingresó un término de búsqueda válido, intentar sincronizar con ERP Central
+        if (resultado.TotalRecords == 0 && !string.IsNullOrWhiteSpace(terminoLimpio) && terminoLimpio.Length >= 3 && _syncService != null)
+        {
+            _logger.LogInformation("Búsqueda de proveedor '{Termino}' sin resultados locales. Sincronizando catálogo desde ERP Central...", terminoLimpio);
+            var syncResult = await _syncService.RefrescarCatalogosAsync(ct);
+            if (syncResult.Exitoso)
+            {
+                resultado = await _proveedorRepo.BuscarEnCatalogoSpAsync(terminoLimpio, pagina, tamanoPagina, ct);
+            }
+        }
+
         return ApiResponse<PaginatedResult<ProveedorCatalogoItemDto>>.Ok(
             resultado,
             $"Se encontraron {resultado.TotalRecords} proveedores en el catálogo.");

@@ -14,14 +14,37 @@ namespace PortalProveedores.Web.Controllers.Api;
 public class ProveedoresApiController : BaseApiController
 {
     private readonly IProveedorService _proveedorService;
+    private readonly ISyncService _syncService;
     private readonly ILogger<ProveedoresApiController> _logger;
 
     public ProveedoresApiController(
         IProveedorService proveedorService,
+        ISyncService syncService,
         ILogger<ProveedoresApiController> logger)
     {
         _proveedorService = proveedorService;
+        _syncService = syncService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Sincroniza manualmente el catálogo de proveedores, sucursales y artículos desde la base central Punto_de_Venta.
+    /// </summary>
+    [HttpPost("catalogo/sincronizar")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<ResultadoSyncCatalogosDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ResultadoSyncCatalogosDto>), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ApiResponse<ResultadoSyncCatalogosDto>>> SincronizarCatalogo(CancellationToken ct)
+    {
+        _logger.LogInformation("Solicitud manual de sincronización de catálogo recibida desde el frontend.");
+        var resultado = await _syncService.RefrescarCatalogosAsync(ct);
+        if (!resultado.Exitoso)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                ApiResponse<ResultadoSyncCatalogosDto>.Fail(resultado.Mensaje, statusCode: 500));
+        }
+
+        return Ok(ApiResponse<ResultadoSyncCatalogosDto>.Ok(resultado, resultado.Mensaje));
     }
 
     /// <summary>
@@ -52,6 +75,7 @@ public class ProveedoresApiController : BaseApiController
     /// <summary>
     /// Buscador de proveedores en el catálogo oficial de Radial Llantas (Cat_Proveedores).
     /// Permite filtrar por Código ERP, RFC o Razón Social con paginación server-side.
+    /// Si no arroja resultados locales, sincroniza automáticamente con el ERP central y reintenta.
     /// </summary>
     /// <param name="termino">Término de búsqueda (SKU/Código ERP, RFC o nombre de la empresa).</param>
     /// <param name="pagina">Número de página (por defecto 1).</param>

@@ -103,7 +103,7 @@ function mostrarEstadoValidacionCatalogo(estado, prov = null, mensajeCustom = ''
             <div class="alert alert-success py-2 px-3 small mb-3 d-flex align-items-center rounded-3 border border-success shadow-sm">
                 <i class="bi bi-check-circle-fill fs-5 me-2 text-success flex-shrink-0"></i>
                 <div>
-                    <strong>Socio Comercial Verificado:</strong> ${escapeHtml(prov?.razonSocial)} (Código ERP: <span class="font-monospace">${escapeHtml(prov?.codigoProveedor)}</span>).
+                    <strong>Socio Comercial Verificado:</strong> ${escapeHtml(prov?.razonSocial)} (Código: <span class="font-monospace">${escapeHtml(prov?.codigoProveedor)}</span>).
                     <div class="text-muted" style="font-size: 0.72rem;">Código Postal, Correo, Teléfono y Políticas Comerciales precargados automáticamente del ERP. Puede modificarlos si lo desea antes de dar de alta.</div>
                 </div>
             </div>`;
@@ -413,6 +413,7 @@ function initProveedorBuscadorModal() {
     const inputBuscar = document.getElementById('inputBuscarCatalogo');
     const btnLimpiar = document.getElementById('btnLimpiarBusquedaCatalogo');
     const spinner = document.getElementById('spinnerBuscadorCatalogo');
+    const spinnerText = document.getElementById('spinnerTextBuscador');
     const contenedorTabla = document.getElementById('contenedorResultadosCatalogo');
     const tbody = document.getElementById('tbodyResultadosCatalogo');
     const estadoVacio = document.getElementById('estadoVacioCatalogo');
@@ -421,6 +422,15 @@ function initProveedorBuscadorModal() {
     const btnSiguiente = document.getElementById('btnPaginaSiguienteCatalogo');
     const regEmail = document.getElementById('regEmail');
 
+    // Elementos de sincronización manual con ERP
+    const btnSincronizarModal = document.getElementById('btnSincronizarCatalogoModal');
+    const iconSync = document.getElementById('iconSyncModal');
+    const txtSync = document.getElementById('txtSyncModal');
+    const alertSync = document.getElementById('alertSyncModal');
+    const alertSyncTexto = document.getElementById('alertSyncModalTexto');
+    const alertSyncIcon = document.getElementById('alertSyncModalIcon');
+    const btnSyncVacio = document.getElementById('btnSyncDesdeEstadoVacio');
+
     if (!modalEl || !inputBuscar || !tbody) return;
 
     let paginaActual = 1;
@@ -428,6 +438,71 @@ function initProveedorBuscadorModal() {
     let terminoActual = '';
     let debounceTimer = null;
     let totalPaginas = 1;
+
+    /**
+     * Sincroniza el catálogo completo con Punto_de_Venta (ERP) bajo demanda
+     */
+    const sincronizarCatalogoConErpAsync = async () => {
+        if (btnSincronizarModal) btnSincronizarModal.disabled = true;
+        if (btnSyncVacio) btnSyncVacio.disabled = true;
+        if (iconSync) iconSync.className = 'spinner-border spinner-border-sm me-1';
+        if (txtSync) txtSync.textContent = 'Sincronizando...';
+        if (spinnerText) spinnerText.textContent = 'Sincronizando proveedores directamente desde Punto de Venta (ERP)...';
+        if (spinner) spinner.classList.remove('d-none');
+        if (contenedorTabla) contenedorTabla.classList.add('d-none');
+        if (estadoVacio) estadoVacio.classList.add('d-none');
+        if (alertSync) alertSync.classList.add('d-none');
+
+        try {
+            const resp = await fetch('/api/v1/proveedores/catalogo/sincronizar', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+            const json = await resp.json();
+
+            if (alertSync && alertSyncTexto) {
+                alertSync.classList.remove('d-none');
+                if (json.success) {
+                    alertSync.className = 'alert alert-success py-2 px-3 small rounded-3 mb-3 shadow-sm d-flex align-items-center';
+                    if (alertSyncIcon) alertSyncIcon.className = 'bi bi-check-circle-fill text-success fs-5 me-2 flex-shrink-0';
+                    alertSyncTexto.textContent = json.message || 'Catálogo sincronizado exitosamente con el ERP Central.';
+                } else {
+                    alertSync.className = 'alert alert-warning py-2 px-3 small rounded-3 mb-3 shadow-sm d-flex align-items-center';
+                    if (alertSyncIcon) alertSyncIcon.className = 'bi bi-exclamation-triangle-fill text-warning fs-5 me-2 flex-shrink-0';
+                    alertSyncTexto.textContent = json.message || 'Advertencia durante la sincronización con el ERP.';
+                }
+            }
+
+            // Recargar búsqueda con la información fresca
+            await buscarProveedoresEnCatalogo(1);
+        } catch (err) {
+            console.error('Error al sincronizar catálogo con ERP:', err);
+            if (alertSync && alertSyncTexto) {
+                alertSync.classList.remove('d-none');
+                alertSync.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3 shadow-sm d-flex align-items-center';
+                if (alertSyncIcon) alertSyncIcon.className = 'bi bi-x-circle-fill text-danger fs-5 me-2 flex-shrink-0';
+                alertSyncTexto.textContent = 'Error al comunicarse con el servidor para sincronizar catálogo.';
+            }
+            if (spinner) spinner.classList.add('d-none');
+            if (contenedorTabla) contenedorTabla.classList.remove('d-none');
+        } finally {
+            if (btnSincronizarModal) btnSincronizarModal.disabled = false;
+            if (btnSyncVacio) btnSyncVacio.disabled = false;
+            if (iconSync) iconSync.className = 'bi bi-arrow-repeat me-1';
+            if (txtSync) txtSync.textContent = 'Refrescar ERP';
+            if (spinnerText) spinnerText.textContent = 'Consultando base central Cat_Proveedores...';
+        }
+    };
+
+    if (btnSincronizarModal) {
+        btnSincronizarModal.addEventListener('click', sincronizarCatalogoConErpAsync);
+    }
+    if (btnSyncVacio) {
+        btnSyncVacio.addEventListener('click', sincronizarCatalogoConErpAsync);
+    }
 
     const buscarProveedoresEnCatalogo = async (pagina = 1) => {
         paginaActual = pagina;
