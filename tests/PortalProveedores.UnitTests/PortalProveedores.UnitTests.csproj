@@ -24,7 +24,6 @@
     <ProjectReference Include="..\..\src\PortalProveedores.Core\PortalProveedores.Core.csproj" />
     <ProjectReference Include="..\..\src\PortalProveedores.Application\PortalProveedores.Application.csproj" />
     <ProjectReference Include="..\..\src\PortalProveedores.Infrastructure\PortalProveedores.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\PortalProveedores.Web\PortalProveedores.Web.csproj" />
   </ItemGroup>
 
 </Project>

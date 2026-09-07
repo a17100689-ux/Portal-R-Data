@@ -659,6 +659,14 @@ CREATE OR ALTER PROCEDURE dbo.sp_Portal_Admin_CrearUsuarioProveedor
     @Email VARCHAR(120),
     @PasswordHash VARCHAR(255),
     @DireccionIP VARCHAR(45),
+    @CodigoPostal VARCHAR(10) = NULL,
+    @Telefono VARCHAR(50) = NULL,
+    @EmailContacto VARCHAR(150) = NULL,
+    @RegimenFiscal VARCHAR(10) = NULL,
+    @RequiereValidarCompra BIT = NULL,
+    @OrdenCompraObligatoria BIT = NULL,
+    @EsProveedorNacional BIT = NULL,
+    @CondicionesPago VARCHAR(50) = NULL,
     @NuevoUsuarioId INT OUTPUT
 AS
 BEGIN
@@ -682,6 +690,21 @@ BEGIN
         RETURN;
     END
 
+    BEGIN TRANSACTION;
+
+    -- Actualizar datos de contacto, fiscales y operacionales en catálogo
+    UPDATE dbo.Cat_Proveedores
+    SET CodigoPostal = COALESCE(@CodigoPostal, CodigoPostal),
+        Telefono = COALESCE(@Telefono, Telefono),
+        EmailContacto = COALESCE(@EmailContacto, EmailContacto),
+        RegimenFiscal = COALESCE(@RegimenFiscal, RegimenFiscal),
+        RequiereValidarCompra = COALESCE(@RequiereValidarCompra, RequiereValidarCompra),
+        OrdenCompraObligatoria = COALESCE(@OrdenCompraObligatoria, OrdenCompraObligatoria),
+        EsProveedorNacional = COALESCE(@EsProveedorNacional, EsProveedorNacional),
+        CondicionesPago = COALESCE(@CondicionesPago, CondicionesPago),
+        UpdatedAt = SYSUTCDATETIME()
+    WHERE ProveedorId = @ProveedorId;
+
     INSERT INTO dbo.Usuarios_Proveedor (
         ProveedorId, RFC, Email, PasswordHash, IntentosFallidos,
         BloqueadoHasta, Activo, CreatedAt, UpdatedAt
@@ -700,6 +723,8 @@ BEGIN
         CONCAT('Usuario creado para proveedor: ', @CodigoProveedor, ' (Email: ', @Email, ')'),
         @DireccionIP, SYSUTCDATETIME()
     );
+
+    COMMIT TRANSACTION;
 END
 GO
 
@@ -751,3 +776,222 @@ BEGIN
     );
 END
 GO
+
+-- ============================================================================
+-- 9. VERIFICACIÓN PREVIA DE PROVEEDOR EN CATÁLOGO CENTRAL (PUNTO CRÍTICO DE REGISTRO)
+-- ============================================================================
+
+CREATE OR ALTER PROCEDURE dbo.sp_Portal_Proveedor_VerificarEnCatalogo
+    @RFC VARCHAR(15) = NULL,
+    @CodigoProveedor VARCHAR(15) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ProveedorId INT;
+    DECLARE @EnCatalogo BIT = 0;
+    DECLARE @TieneUsuario BIT = 0;
+    DECLARE @EmailRegistrado VARCHAR(120) = NULL;
+
+    SELECT TOP (1)
+        @ProveedorId = P.ProveedorId,
+        @EnCatalogo = 1
+    FROM dbo.Cat_Proveedores P WITH (NOLOCK)
+    WHERE (@CodigoProveedor IS NOT NULL AND P.CodigoProveedor = @CodigoProveedor)
+       OR (@RFC IS NOT NULL AND P.RFC = @RFC);
+
+    IF @ProveedorId IS NOT NULL
+    BEGIN
+        SELECT TOP (1)
+            @TieneUsuario = 1,
+            @EmailRegistrado = U.Email
+        FROM dbo.Usuarios_Proveedor U WITH (NOLOCK)
+        WHERE U.ProveedorId = @ProveedorId
+          AND U.Activo = 1;
+
+        SELECT 
+            1 AS EnCatalogo,
+            P.ProveedorId,
+            P.CodigoProveedor,
+            P.RFC,
+            P.RazonSocial,
+            P.CondicionesPago,
+            P.RequiereValidarCompra,
+            P.OrdenCompraObligatoria,
+            P.EsProveedorNacional,
+            P.Activo,
+            P.CodigoPostal,
+            P.Telefono,
+            P.EmailContacto,
+            P.RegimenFiscal,
+            @TieneUsuario AS TieneUsuarioRegistrado,
+            @EmailRegistrado AS EmailRegistrado,
+            CASE 
+                WHEN P.Activo = 0 THEN 'El proveedor existe en el catálogo pero se encuentra inactivo.'
+                WHEN @TieneUsuario = 1 THEN 'El proveedor ya cuenta con un usuario activo en el portal (' + ISNULL(@EmailRegistrado, '') + ').'
+                ELSE 'Proveedor verificado en el catálogo oficial de Radial Llantas.'
+            END AS Mensaje
+        FROM dbo.Cat_Proveedores P WITH (NOLOCK)
+        WHERE P.ProveedorId = @ProveedorId;
+    END
+    ELSE
+    BEGIN
+        SELECT 
+            0 AS EnCatalogo,
+            CAST(NULL AS INT) AS ProveedorId,
+            @CodigoProveedor AS CodigoProveedor,
+            @RFC AS RFC,
+            CAST(NULL AS VARCHAR(200)) AS RazonSocial,
+            CAST(NULL AS VARCHAR(50)) AS CondicionesPago,
+            CAST(0 AS BIT) AS RequiereValidarCompra,
+            CAST(0 AS BIT) AS OrdenCompraObligatoria,
+            CAST(0 AS BIT) AS EsProveedorNacional,
+            CAST(0 AS BIT) AS Activo,
+            CAST(NULL AS VARCHAR(10)) AS CodigoPostal,
+            CAST(NULL AS VARCHAR(50)) AS Telefono,
+            CAST(NULL AS VARCHAR(150)) AS EmailContacto,
+            CAST(NULL AS VARCHAR(10)) AS RegimenFiscal,
+            0 AS TieneUsuarioRegistrado,
+            CAST(NULL AS VARCHAR(120)) AS EmailRegistrado,
+            'El proveedor no se encuentra en el Catálogo de Proveedores de Radial Llantas (Cat_Proveedores).' AS Mensaje;
+    END
+END
+GO
+
+-- ============================================================================
+-- 10. BUSCADOR DE PROVEEDORES DEL CATÁLOGO (PAGINACIÓN Y BÚSQUEDA SARGABLE)
+-- ============================================================================
+
+CREATE OR ALTER PROCEDURE dbo.sp_Portal_Proveedor_BuscarEnCatalogo
+    @Termino VARCHAR(100) = NULL,
+    @Pagina INT = 1,
+    @TamanoPagina INT = 20
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET @Pagina = CASE WHEN @Pagina < 1 THEN 1 ELSE @Pagina END;
+    SET @TamanoPagina = CASE WHEN @TamanoPagina < 1 THEN 20 ELSE @TamanoPagina END;
+    DECLARE @Offset INT = (@Pagina - 1) * @TamanoPagina;
+
+    SET @Termino = NULLIF(LTRIM(RTRIM(@Termino)), '');
+
+    -- Conteo total para paginación UI
+    SELECT COUNT(1) AS TotalRegistros
+    FROM dbo.Cat_Proveedores P WITH (NOLOCK)
+    WHERE (@Termino IS NULL 
+       OR P.CodigoProveedor LIKE @Termino + '%'
+       OR P.RFC LIKE @Termino + '%'
+       OR P.RazonSocial LIKE '%' + @Termino + '%');
+
+    -- Registros paginados
+    SELECT 
+        P.ProveedorId,
+        P.CodigoProveedor,
+        P.RFC,
+        P.RazonSocial,
+        P.CondicionesPago,
+        P.RequiereValidarCompra,
+        P.OrdenCompraObligatoria,
+        P.EsProveedorNacional,
+        P.Activo,
+        P.CodigoPostal,
+        P.Telefono,
+        P.EmailContacto,
+        P.RegimenFiscal,
+        CASE WHEN EXISTS (
+            SELECT 1 FROM dbo.Usuarios_Proveedor U WITH (NOLOCK) 
+            WHERE U.ProveedorId = P.ProveedorId AND U.Activo = 1
+        ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS TieneUsuarioRegistrado,
+        (
+            SELECT TOP (1) U.Email 
+            FROM dbo.Usuarios_Proveedor U WITH (NOLOCK) 
+            WHERE U.ProveedorId = P.ProveedorId AND U.Activo = 1
+        ) AS EmailRegistrado
+    FROM dbo.Cat_Proveedores P WITH (NOLOCK)
+    WHERE (@Termino IS NULL 
+       OR P.CodigoProveedor LIKE @Termino + '%'
+       OR P.RFC LIKE @Termino + '%'
+       OR P.RazonSocial LIKE '%' + @Termino + '%')
+    ORDER BY P.RazonSocial ASC
+    OFFSET @Offset ROWS
+    FETCH NEXT @TamanoPagina ROWS ONLY;
+END
+GO
+
+-- ============================================================================
+-- 11. CONSULTAS INDIVIDUALES DE PROVEEDORES
+-- ============================================================================
+
+CREATE OR ALTER PROCEDURE dbo.sp_Portal_Proveedor_ObtenerPorId
+    @Id INT = NULL,
+    @ProveedorId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Pid INT = COALESCE(@ProveedorId, @Id);
+
+    SELECT TOP (1)
+        ProveedorId,
+        CodigoProveedor,
+        RFC,
+        RazonSocial,
+        CondicionesPago,
+        RequiereValidarCompra,
+        OrdenCompraObligatoria,
+        EsProveedorNacional,
+        Activo
+    FROM dbo.Cat_Proveedores WITH (NOLOCK)
+    WHERE ProveedorId = @Pid;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_Portal_Proveedor_ObtenerPorRfc
+    @RFC VARCHAR(15)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET @RFC = LTRIM(RTRIM(@RFC));
+
+    SELECT TOP (1)
+        ProveedorId,
+        CodigoProveedor,
+        RFC,
+        RazonSocial,
+        CondicionesPago,
+        RequiereValidarCompra,
+        OrdenCompraObligatoria,
+        EsProveedorNacional,
+        Activo
+    FROM dbo.Cat_Proveedores WITH (NOLOCK)
+    WHERE RFC = @RFC;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_Portal_Proveedor_ObtenerPorCodigo
+    @CodigoProveedor VARCHAR(15)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET @CodigoProveedor = LTRIM(RTRIM(@CodigoProveedor));
+
+    SELECT TOP (1)
+        ProveedorId,
+        CodigoProveedor,
+        RFC,
+        RazonSocial,
+        CondicionesPago,
+        RequiereValidarCompra,
+        OrdenCompraObligatoria,
+        EsProveedorNacional,
+        Activo
+    FROM dbo.Cat_Proveedores WITH (NOLOCK)
+    WHERE CodigoProveedor = @CodigoProveedor;
+END
+GO
+
+
+

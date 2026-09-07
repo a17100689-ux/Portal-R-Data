@@ -43,7 +43,7 @@ public class AuthIntegrationTests
         var resultado = await _authService.ValidarCredencialesAsync(dto, "127.0.0.1");
 
         Assert.True(resultado.Exitoso, resultado.Mensaje);
-        Assert.Equal("ADMIN", resultado.Rol);
+        Assert.Equal("Administrador", resultado.Rol);
         Assert.True(resultado.EsAdmin);
         Assert.NotNull(resultado.UsuarioId);
         Assert.Equal("admin@radial.com.mx", resultado.Email);
@@ -62,13 +62,13 @@ public class AuthIntegrationTests
         {
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT TOP (1) ProveedorId, CodigoProveedor, RFC, RazonSocial FROM dbo.Cat_Proveedores WHERE Activo = 1;";
+            cmd.CommandText = "SELECT TOP (1) ProveedorId, CodigoProveedor, RFC, RazonSocial FROM dbo.Cat_Proveedores WHERE Activo = 1 AND LEN(ISNULL(RFC, '')) >= 12 ORDER BY CodigoProveedor;";
             using var reader = await cmd.ExecuteReaderAsync();
-            Assert.True(await reader.ReadAsync(), "Debe existir al menos un proveedor activo en Cat_Proveedores");
+            Assert.True(await reader.ReadAsync(), "Debe existir al menos un proveedor activo con RFC válido en Cat_Proveedores");
             provId = reader.GetInt32(0);
-            provCod = reader.GetString(1);
-            provRfc = reader.GetString(2);
-            provRazon = reader.GetString(3);
+            provCod = reader.GetString(1).Trim();
+            provRfc = reader.GetString(2).Trim();
+            provRazon = reader.GetString(3).Trim();
         }
 
         string rawPassword = "ProvDemo2026!#";
@@ -92,7 +92,7 @@ public class AuthIntegrationTests
             ELSE
             BEGIN
                 UPDATE dbo.Usuarios_Proveedor
-                SET PasswordHash = @Hash, IntentosFallidos = 0, BloqueadoHasta = NULL, Activo = 1, UpdatedAt = SYSUTCDATETIME()
+                SET RFC = @RFC, ProveedorId = @ProveedorId, PasswordHash = @Hash, IntentosFallidos = 0, BloqueadoHasta = NULL, Activo = 1, UpdatedAt = SYSUTCDATETIME()
                 WHERE Email = @Email OR RFC = @RFC;
             END";
             cmd.Parameters.AddWithValue("@ProveedorId", provId);
@@ -178,4 +178,42 @@ public class AuthIntegrationTests
         Assert.False(res.Exitoso);
         Assert.Equal("Usuario o contraseña incorrectos.", res.Mensaje);
     }
+
+    [Fact]
+    public async Task CatalogoProveedores_BuscarYVerificar_DebeRetornarDatosCorrectos()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = ConnectionStringWeb
+            })
+            .Build();
+
+        var provRepo = new SqlProveedorRepository(config);
+
+        // 1. Búsqueda paginada sin término (debe retornar registros)
+        var busquedaGeneral = await provRepo.BuscarEnCatalogoSpAsync(null, pagina: 1, tamanoPagina: 10);
+        Assert.NotNull(busquedaGeneral);
+        Assert.True(busquedaGeneral.TotalRecords > 1000, "El catálogo debe tener más de 1000 proveedores.");
+        Assert.Equal(10, busquedaGeneral.Items.Count);
+
+        // 2. Búsqueda con término específico (ej: KUMHO)
+        var busquedaTermino = await provRepo.BuscarEnCatalogoSpAsync("KUMHO", pagina: 1, tamanoPagina: 10);
+        Assert.NotNull(busquedaTermino);
+        Assert.True(busquedaTermino.TotalRecords >= 1);
+        Assert.Contains(busquedaTermino.Items, p => p.RazonSocial.Contains("KUMHO", StringComparison.OrdinalIgnoreCase));
+
+        // 3. Verificación puntual por Código ERP
+        var provItem = busquedaTermino.Items.First();
+        var verificacion = await provRepo.VerificarEnCatalogoSpAsync(null, provItem.CodigoProveedor);
+        Assert.True(verificacion.EnCatalogo);
+        Assert.Equal(provItem.ProveedorId, verificacion.ProveedorId);
+        Assert.Equal(provItem.RFC, verificacion.RFC);
+
+        // 4. Verificación puntual por RFC
+        var verificacionRfc = await provRepo.VerificarEnCatalogoSpAsync(provItem.RFC, null);
+        Assert.True(verificacionRfc.EnCatalogo);
+        Assert.Equal(provItem.ProveedorId, verificacionRfc.ProveedorId);
+    }
 }
+

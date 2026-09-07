@@ -330,18 +330,23 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1. Sincronizar Proveedores
+    -- 1. Sincronizar Proveedores (incluyendo CP, Telefono, Email)
     MERGE dbo.Cat_Proveedores AS Target
     USING (
         SELECT 
-            Codigo_De_Proveedor AS CodigoProveedor,
-            RFC,
-            Nombre_De_Proveedor AS RazonSocial,
-            CondicionesPago,
-            CASE WHEN [Requiere validar compra] = 'Si' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS RequiereValidarCompra,
-            Orden_Compra_Obligatoria AS OrdenCompraObligatoria,
-            Es_Proveedor_Nacional AS EsProveedorNacional
-        FROM Punto_de_Venta.dbo.vtaProveedores_ProveedoresCompras
+            V.Codigo_De_Proveedor COLLATE DATABASE_DEFAULT AS CodigoProveedor,
+            V.RFC COLLATE DATABASE_DEFAULT AS RFC,
+            V.Nombre_De_Proveedor COLLATE DATABASE_DEFAULT AS RazonSocial,
+            V.CondicionesPago COLLATE DATABASE_DEFAULT AS CondicionesPago,
+            CASE WHEN V.[Requiere validar compra] COLLATE DATABASE_DEFAULT = 'Si' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS RequiereValidarCompra,
+            V.Orden_Compra_Obligatoria AS OrdenCompraObligatoria,
+            V.Es_Proveedor_Nacional AS EsProveedorNacional,
+            NULLIF(LTRIM(RTRIM(P.CP)), '') COLLATE DATABASE_DEFAULT AS CodigoPostal,
+            NULLIF(LTRIM(RTRIM(P.Telefono)), '') COLLATE DATABASE_DEFAULT AS Telefono,
+            COALESCE(NULLIF(LTRIM(RTRIM(P.Email_Portal)), ''), NULLIF(LTRIM(RTRIM(P.Email)), '')) COLLATE DATABASE_DEFAULT AS EmailContacto
+        FROM Punto_de_Venta.dbo.vtaProveedores_ProveedoresCompras V
+        LEFT JOIN Punto_de_Venta.dbo.Proveedores P 
+            ON V.Codigo_De_Proveedor = P.Codigo_De_Proveedor COLLATE DATABASE_DEFAULT
     ) AS Source
     ON (Target.CodigoProveedor = Source.CodigoProveedor COLLATE DATABASE_DEFAULT)
     WHEN MATCHED THEN
@@ -352,11 +357,22 @@ BEGIN
             Target.RequiereValidarCompra = Source.RequiereValidarCompra,
             Target.OrdenCompraObligatoria = Source.OrdenCompraObligatoria,
             Target.EsProveedorNacional = Source.EsProveedorNacional,
+            Target.CodigoPostal = COALESCE(Source.CodigoPostal, Target.CodigoPostal),
+            Target.Telefono = COALESCE(Source.Telefono, Target.Telefono),
+            Target.EmailContacto = COALESCE(Source.EmailContacto, Target.EmailContacto),
             Target.Activo = 1,
             Target.UpdatedAt = SYSUTCDATETIME()
     WHEN NOT MATCHED BY TARGET THEN
-        INSERT (CodigoProveedor, RFC, RazonSocial, CondicionesPago, RequiereValidarCompra, OrdenCompraObligatoria, EsProveedorNacional, Activo, CreatedAt, UpdatedAt)
-        VALUES (Source.CodigoProveedor, Source.RFC, Source.RazonSocial, Source.CondicionesPago, Source.RequiereValidarCompra, Source.OrdenCompraObligatoria, Source.EsProveedorNacional, 1, SYSUTCDATETIME(), SYSUTCDATETIME());
+        INSERT (
+            CodigoProveedor, RFC, RazonSocial, CondicionesPago, 
+            RequiereValidarCompra, OrdenCompraObligatoria, EsProveedorNacional, 
+            CodigoPostal, Telefono, EmailContacto, Activo, CreatedAt, UpdatedAt
+        )
+        VALUES (
+            Source.CodigoProveedor, Source.RFC, Source.RazonSocial, Source.CondicionesPago, 
+            Source.RequiereValidarCompra, Source.OrdenCompraObligatoria, Source.EsProveedorNacional, 
+            Source.CodigoPostal, Source.Telefono, Source.EmailContacto, 1, SYSUTCDATETIME(), SYSUTCDATETIME()
+        );
 
     -- 2. Sincronizar Sucursales
     MERGE dbo.Cat_Sucursales AS Target
@@ -454,5 +470,24 @@ BEGIN
       AND C.Fecha_De_Recepcion IS NOT NULL;
 
     SELECT @@ROWCOUNT AS FacturasActualizadasConEntrega;
+END
+GO
+
+-- ============================================================================
+-- 5. RESUMEN Y MÉTRICAS DE LA COLA DE SINCRONIZACIÓN
+-- ============================================================================
+
+CREATE OR ALTER PROCEDURE dbo.sp_Sync_ObtenerResumenEstado
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        ISNULL(SUM(CASE WHEN EstadoSync = 'PENDIENTE' THEN 1 ELSE 0 END), 0) AS FacturasPendientes,
+        ISNULL(SUM(CASE WHEN EstadoSync = 'EN_PROCESO' THEN 1 ELSE 0 END), 0) AS FacturasEnProceso,
+        ISNULL(SUM(CASE WHEN EstadoSync = 'COMPLETADO' THEN 1 ELSE 0 END), 0) AS FacturasCompletadas,
+        ISNULL(SUM(CASE WHEN EstadoSync = 'FALLIDO' THEN 1 ELSE 0 END), 0) AS FacturasFallidas,
+        MAX(CASE WHEN EstadoSync = 'COMPLETADO' THEN ProcesadoAt ELSE NULL END) AS UltimaSincronizacionExitosa
+    FROM dbo.Sync_Transacciones_Cola WITH (NOLOCK);
 END
 GO

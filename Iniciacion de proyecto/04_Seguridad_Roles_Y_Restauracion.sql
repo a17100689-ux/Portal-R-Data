@@ -94,6 +94,11 @@ GRANT EXECUTE ON dbo.sp_Portal_Admin_Login TO [Rol_PortalWeb_App];
 GRANT EXECUTE ON dbo.sp_Portal_Admin_CrearUsuarioProveedor TO [Rol_PortalWeb_App];
 GRANT EXECUTE ON dbo.sp_Portal_Admin_ResetearPasswordProveedor TO [Rol_PortalWeb_App];
 GRANT EXECUTE ON dbo.sp_Portal_Admin_CambiarEstatusUsuario TO [Rol_PortalWeb_App];
+GRANT EXECUTE ON dbo.sp_Portal_Proveedor_VerificarEnCatalogo TO [Rol_PortalWeb_App];
+GRANT EXECUTE ON dbo.sp_Portal_Proveedor_BuscarEnCatalogo TO [Rol_PortalWeb_App];
+GRANT EXECUTE ON dbo.sp_Portal_Proveedor_ObtenerPorId TO [Rol_PortalWeb_App];
+GRANT EXECUTE ON dbo.sp_Portal_Proveedor_ObtenerPorRfc TO [Rol_PortalWeb_App];
+GRANT EXECUTE ON dbo.sp_Portal_Proveedor_ObtenerPorCodigo TO [Rol_PortalWeb_App];
 
 -- Permisos de ejecución de tipos TVP para la aplicación web
 GRANT EXECUTE ON TYPE::dbo.typePortal_FacturaDetalle TO [Rol_PortalWeb_App];
